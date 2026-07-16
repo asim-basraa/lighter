@@ -72,4 +72,24 @@ describe('ingest — pure inventory projection of a design-system repo', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('reports catalog.json by path when the catalog artifact is malformed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bad-catalog-'));
+    const art = join(dir, 'artifacts');
+    mkdirSync(art);
+    // tokens.json is valid, so failure must originate from the catalog parse branch
+    writeFileSync(join(art, 'tokens.json'), JSON.stringify({ 'space.4': '1rem' }));
+    // valid JSON, but the Button entry is missing the required `description` field
+    writeFileSync(
+      join(art, 'catalog.json'),
+      JSON.stringify({ components: { Button: { slots: [], props: {} } } }),
+    );
+    try {
+      expect(() => ingest(dir, { artifactDir: 'artifacts' })).toThrow(
+        /malformed artifact.*catalog\.json/is,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
