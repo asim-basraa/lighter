@@ -39,4 +39,25 @@ describe('ingestion health findings', () => {
     // No previews/usedTokens ⇒ absence of signal is not a finding; description is fine ⇒ none.
     expect(findings).toEqual([]);
   });
+
+  it('treats present-but-empty previews/usedTokens as "flag everything", not skip', () => {
+    // An empty array is a real (truthy) signal distinct from omission: the repo declares it ships
+    // zero previews and references zero tokens, so every component/token should be flagged.
+    const findings = computeHealth(
+      {
+        components: { A: { description: 'A well described component.', slots: [], props: {} } },
+        previews: [],
+        usedTokens: [],
+      },
+      [{ name: 'color.x', value: '#000', category: 'color' }],
+    );
+    expect(findings).toEqual([
+      { kind: 'missing-preview', target: 'A', message: 'Component "A" has no preview spec.' },
+      {
+        kind: 'orphaned-token',
+        target: 'color.x',
+        message: 'Token "color.x" is not referenced by any component.',
+      },
+    ]);
+  });
 });
