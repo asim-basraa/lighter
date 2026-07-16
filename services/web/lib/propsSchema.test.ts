@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { propsToRows } from './propsSchema.js';
 
 // Schemas exactly as lighter-example emits them (zod-to-json-schema: nullable enums as anyOf).
@@ -72,5 +75,48 @@ describe('propsToRows', () => {
   it('returns no rows for a schema with no properties', () => {
     expect(propsToRows({ type: 'object' })).toEqual([]);
     expect(propsToRows({})).toEqual([]);
+  });
+});
+
+describe('propsToRows against a real committed catalog artifact', () => {
+  // Pins the UI to an actual ingestion artifact so a future change to the emitter's JSON Schema
+  // (e.g. a different null representation) can't silently drift the props view unnoticed.
+  const catalog = JSON.parse(
+    readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        '..',
+        'packages',
+        'ingestion',
+        'fixtures',
+        'example-ds',
+        'artifacts',
+        'catalog.json',
+      ),
+      'utf8',
+    ),
+  ) as { components: Record<string, { props: unknown; required?: string[] }> };
+
+  it('derives a labeled row for every prop of every component (never "unknown")', () => {
+    for (const [name, entry] of Object.entries(catalog.components)) {
+      const rows = propsToRows(entry.props);
+      expect(rows.length, `${name} has rows`).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.type, `${name}.${row.name} type`).not.toBe('unknown');
+        expect(row.type.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("reads Button's label as a required string and variant as a nullable enum", () => {
+    const rows = propsToRows(catalog.components.Button!.props);
+    const label = rows.find((r) => r.name === 'label')!;
+    const variant = rows.find((r) => r.name === 'variant')!;
+    expect(label.type).toBe('string');
+    expect(label.required).toBe(true);
+    expect(variant.type).toContain('null');
+    expect(variant.type).toContain('primary');
   });
 });
