@@ -43,3 +43,24 @@ export function apiBaseUrl(): string {
 export function apiInventoryFetcher(baseUrl: string = apiBaseUrl()): InventoryFetcher {
   return () => fetch(new URL('/inventory', baseUrl), { cache: 'no-store' });
 }
+
+/** The inventory model plus a load error, if any — the shape every dashboard page renders from. */
+export interface LoadedInventory {
+  model: InventoryModel | null;
+  error: string | null;
+}
+
+/**
+ * Load the inventory for a dashboard page: fetch it and fold any failure into a plain `error` string
+ * so a server component can degrade to a message instead of throwing. A `null` model means nothing
+ * has been ingested yet (an empty state), distinct from `error` (the API was unreachable).
+ */
+export async function loadInventory(
+  fetcher: InventoryFetcher = apiInventoryFetcher(),
+): Promise<LoadedInventory> {
+  try {
+    return { model: await fetchInventory(fetcher), error: null };
+  } catch (err) {
+    return { model: null, error: err instanceof Error ? err.message : 'Failed to load inventory' };
+  }
+}
