@@ -23,6 +23,24 @@ For each issue in dependency order:
 - `lighter-example` = **separate sibling repo** at `/Users/asim/work/lighter/lighter-example` (doubles as test fixture). NOT inside the monorepo (overrides PRD line 64 per user).
 - Persistence: SQLite v1 via Drizzle, Postgres-swappable (driver + `DB_DIALECT` only, no query rewrites).
 - Merge policy: auto-merge when review+tests green.
+- **Web client: Next.js (App Router)** (user-chosen) at `services/web` — ONE app for the internal
+  dashboard (#8-12), ideation UI (#17-20), and the customer review surface (#21-30, tokenized
+  per-spec URLs). Consumes `@lighter/api` for ingested metadata AND depends on `lighter-example`
+  (file/link dep) for the real React registry + `<SpecView>` to render live previews.
+
+## Frontend phase plan (#8-12) — read before starting
+
+- **Prerequisite (closes the producer gap):** teach `lighter-example` to emit `dist/catalog.json`
+  from its catalog — `{ components: { name: {description, slots, props: <JSON Schema>} }, previews:
+[names], usedTokens: [names] }`. Use `zod-to-json-schema` on each component's Zod `props`. Wire
+  into `pnpm build`, test it. This makes `ingest()` / `POST /ingest` work against the LIVE example,
+  so the dashboard's data genuinely "comes from the inventory API" (AC of #8). Do this FIRST as a
+  small lighter-example PR.
+- Then `services/web` (Next.js): #8 gallery (fetch `/inventory` for the list + render each preview
+  via lighter-example `<SpecView>`), #9 props table (from `props` JSON Schema), #10 token inventory,
+  #11 health panel (from `model.health`), #12 usage.
+- `services/web` needs `lighter-example` as a dependency: `pnpm add lighter-example@file:../../lighter-example`
+  (or `link:`). CI note: sibling repo must be present — fine locally; revisit if CI is wired.
 
 ## Environment / secrets
 
