@@ -5,7 +5,11 @@
       "slots": ["default"],
       "props": {
         "type": "object",
-        "properties": { "title": { "type": "string" } },
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        },
         "required": ["title"],
         "additionalProperties": false
       }
@@ -16,8 +20,14 @@
       "props": {
         "type": "object",
         "properties": {
-          "direction": { "type": ["string", "null"], "enum": ["vertical", "horizontal", null] },
-          "gap": { "type": ["string", "null"], "enum": ["1", "2", "4", "6", "8", null] }
+          "direction": {
+            "type": ["string", "null"],
+            "enum": ["vertical", "horizontal", null]
+          },
+          "gap": {
+            "type": ["string", "null"],
+            "enum": ["1", "2", "4", "6", "8", null]
+          }
         },
         "required": ["direction", "gap"],
         "additionalProperties": false
@@ -28,7 +38,11 @@
       "slots": ["default"],
       "props": {
         "type": "object",
-        "properties": { "title": { "type": ["string", "null"] } },
+        "properties": {
+          "title": {
+            "type": ["string", "null"]
+          }
+        },
         "required": ["title"],
         "additionalProperties": false
       }
@@ -39,8 +53,13 @@
       "props": {
         "type": "object",
         "properties": {
-          "content": { "type": "string" },
-          "size": { "type": ["string", "null"], "enum": ["sm", "md", "lg", "xl", null] }
+          "content": {
+            "type": "string"
+          },
+          "size": {
+            "type": ["string", "null"],
+            "enum": ["sm", "md", "lg", "xl", null]
+          }
         },
         "required": ["content", "size"],
         "additionalProperties": false
@@ -52,12 +71,60 @@
       "props": {
         "type": "object",
         "properties": {
-          "label": { "type": "string" },
-          "variant": { "type": ["string", "null"], "enum": ["primary", "secondary", null] }
+          "label": {
+            "type": "string"
+          },
+          "variant": {
+            "type": ["string", "null"],
+            "enum": ["primary", "secondary", null]
+          }
         },
         "required": ["label", "variant"],
         "additionalProperties": false
       }
     }
-  }
+  },
+  "previews": ["PageShell", "Stack", "Card", "Text", "Button"],
+  "usedTokens": [
+    "color.neutral.50",
+    "color.neutral.100",
+    "color.neutral.300",
+    "color.neutral.500",
+    "color.neutral.700",
+    "color.neutral.900",
+    "color.blue.50",
+    "color.blue.100",
+    "color.blue.300",
+    "color.blue.500",
+    "color.blue.700",
+    "color.blue.900",
+    "color.green.100",
+    "color.green.500",
+    "color.green.700",
+    "color.red.100",
+    "color.red.500",
+    "color.red.700",
+    "fontSize.xs",
+    "fontSize.sm",
+    "fontSize.md",
+    "fontSize.lg",
+    "fontSize.xl",
+    "fontSize.2xl",
+    "fontSize.3xl",
+    "space.0",
+    "space.1",
+    "space.2",
+    "space.3",
+    "space.4",
+    "space.6",
+    "space.8",
+    "radius.none",
+    "radius.sm",
+    "radius.md",
+    "radius.lg",
+    "radius.full",
+    "shadow.sm",
+    "shadow.md",
+    "shadow.lg"
+  ]
 }

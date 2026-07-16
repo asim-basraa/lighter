@@ -1,0 +1,24 @@
+{
+  "components": {
+    "Button": {
+      "description": "A clickable button in a primary or secondary variant.",
+      "slots": [],
+      "props": {
+        "type": "object",
+        "properties": { "label": { "type": "string" } },
+        "required": ["label"]
+      }
+    },
+    "Widget": {
+      "description": "  ",
+      "slots": [],
+      "props": {
+        "type": "object",
+        "properties": { "value": { "type": "string" } },
+        "required": ["value"]
+      }
+    }
+  },
+  "previews": ["Button"],
+  "usedTokens": ["color.blue.500", "space.4"]
+}

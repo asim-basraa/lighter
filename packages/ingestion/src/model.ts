@@ -22,9 +22,20 @@ export interface InventoryToken {
   category: string;
 }
 
+/** A design-system health issue that makes the catalog less agent-ready. */
+export type HealthFindingKind = 'missing-description' | 'missing-preview' | 'orphaned-token';
+
+export interface HealthFinding {
+  kind: HealthFindingKind;
+  /** The component or token name the finding is about. */
+  target: string;
+  message: string;
+}
+
 export interface InventoryModel {
   components: InventoryComponent[];
   tokens: InventoryToken[];
+  health: HealthFinding[];
 }
 
 // ---- Artifact contract ------------------------------------------------------
@@ -43,5 +54,9 @@ export const CatalogEntryArtifact = z.object({
 
 export const CatalogArtifact = z.object({
   components: z.record(CatalogEntryArtifact),
+  /** Names of components that ship a preview spec. Absent ⇒ preview health is not evaluated. */
+  previews: z.array(z.string()).optional(),
+  /** Token names actually referenced by the design system. Absent ⇒ token health is not evaluated. */
+  usedTokens: z.array(z.string()).optional(),
 });
 export type CatalogArtifact = z.infer<typeof CatalogArtifact>;
