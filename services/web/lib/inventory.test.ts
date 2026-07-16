@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient, runMigrations } from '@lighter/db';
 import { createApp } from '@lighter/api';
-import { fetchInventory } from './inventory.js';
+import { fetchInventory, loadInventory } from './inventory.js';
 
 // The ingestion package's committed fixture — the same design-system snapshot the API test ingests.
 const fixtureRepo = join(
@@ -49,5 +49,30 @@ describe('fetchInventory', () => {
   it('throws on an unexpected API error status', async () => {
     const boom = () => Promise.resolve(new Response('nope', { status: 500 }));
     await expect(fetchInventory(boom)).rejects.toThrow(/500/);
+  });
+});
+
+describe('loadInventory', () => {
+  it('folds a fetch failure into an error string with a null model', async () => {
+    const { model, error } = await loadInventory(() => Promise.reject(new Error('ECONNREFUSED')));
+    expect(model).toBeNull();
+    expect(error).toContain('ECONNREFUSED');
+  });
+
+  it('reports a null model and no error when nothing is ingested (404)', async () => {
+    const notFound = () => Promise.resolve(new Response('', { status: 404 }));
+    const { model, error } = await loadInventory(notFound);
+    expect(model).toBeNull();
+    expect(error).toBeNull();
+  });
+
+  it('returns the model with no error on success', async () => {
+    const ok = () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ components: [], tokens: [], health: [] }), { status: 200 }),
+      );
+    const { model, error } = await loadInventory(ok);
+    expect(error).toBeNull();
+    expect(model).toEqual({ components: [], tokens: [], health: [] });
   });
 });

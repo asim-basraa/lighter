@@ -114,6 +114,7 @@ function Frame({ children }: { children: ReactNode }) {
         padding: 'var(--space-2)',
         background: 'var(--color-neutral-100)',
         borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden',
       }}
     >
       {children}
@@ -140,6 +141,7 @@ const swatchBox: CSSProperties = {
   background: 'var(--color-neutral-100)',
   borderRadius: 'var(--radius-sm)',
   color: 'var(--color-neutral-900)',
+  overflow: 'hidden',
 };
 
 const sectionTitle: CSSProperties = {
