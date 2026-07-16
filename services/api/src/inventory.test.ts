@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { createClient, runMigrations } from '@lighter/db';
 import { createApp } from './app.js';
 
-// The ingestion package's committed example fixture (monorepo-relative, always present).
-const fixtureRepo = join(
+// The ingestion package's committed fixtures (monorepo-relative, always present).
+const fixturesRoot = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',
   '..',
@@ -13,8 +13,9 @@ const fixtureRepo = join(
   'packages',
   'ingestion',
   'fixtures',
-  'example-ds',
 );
+const fixtureRepo = join(fixturesRoot, 'example-ds');
+const otherFixtureRepo = join(fixturesRoot, 'unhealthy-ds');
 
 function testApp() {
   const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
@@ -54,6 +55,33 @@ describe('ingestion API', () => {
     expect(res.status).toBe(200);
     const model = (await res.json()) as { components: { name: string }[] };
     expect(model.components.map((c) => c.name)).toContain('PageShell');
+  });
+
+  it('GET /inventory returns the LATEST across separate ingests, proving persisted id-desc ordering', async () => {
+    const app = testApp();
+    // First request persists the example-ds snapshot (contains PageShell).
+    const first = await app.request('/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ repoPath: fixtureRepo, artifactDir: 'artifacts' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(first.status).toBe(201);
+    // A second, separate request persists a different snapshot (unhealthy-ds: Widget, no PageShell).
+    const second = await app.request('/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ repoPath: otherFixtureRepo, artifactDir: 'artifacts' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(second.status).toBe(201);
+
+    // GET must return the newest snapshot — not the first — which only holds if the read goes
+    // through the DB and latestInventory orders by id descending.
+    const res = await app.request('/inventory');
+    expect(res.status).toBe(200);
+    const model = (await res.json()) as { components: { name: string }[] };
+    const names = model.components.map((c) => c.name);
+    expect(names).toContain('Widget');
+    expect(names).not.toContain('PageShell');
   });
 
   it('GET /inventory is 404 before anything is ingested', async () => {
