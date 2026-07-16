@@ -13,10 +13,18 @@ export interface AppDeps {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
 
+  // Centralized error shaping at the factory seam, so every route slice returns a consistent body.
+  app.onError((err, c) => c.json({ status: 'error', message: err.message }, 500));
+
   app.get('/health', async (c) => {
-    // A real read proves the API can reach the database, not just that the process is up.
-    const checks = await listHealthChecks(deps.db);
-    return c.json({ status: 'ok', db: 'ok', healthChecks: checks.length });
+    // A real read proves the API can reach the database, not just that the process is up. If the DB
+    // is unreachable, report a 503 so an orchestrator's readiness probe can act on it.
+    try {
+      const checks = await listHealthChecks(deps.db);
+      return c.json({ status: 'ok', db: 'ok', healthChecks: checks.length });
+    } catch (err) {
+      return c.json({ status: 'degraded', db: 'error', message: (err as Error).message }, 503);
+    }
   });
 
   return app;

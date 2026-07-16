@@ -40,4 +40,17 @@ describe('API service', () => {
     const res = await app.request('/does-not-exist');
     expect(res.status).toBe(404);
   });
+
+  it('reports 503 degraded when the database is unreachable', async () => {
+    const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
+    runMigrations(sqlite);
+    const app = createApp({ db });
+    sqlite.close(); // simulate an unreachable DB
+
+    const res = await app.request('/health');
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as HealthBody;
+    expect(body.status).toBe('degraded');
+    expect(body.db).toBe('error');
+  });
 });
