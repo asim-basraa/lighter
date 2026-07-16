@@ -1,0 +1,6 @@
+.claude/
+pnpm-lock.yaml
+**/migrations/**
+**/dist/**
+coverage/
+node_modules/
