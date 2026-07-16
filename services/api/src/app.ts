@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
-import { ingest } from '@lighter/ingestion';
+import { ingest, type InventoryModel } from '@lighter/ingestion';
 
 export interface AppDeps {
   db: Db;
@@ -39,8 +39,19 @@ export function createApp(deps: AppDeps): Hono {
       return c.json({ status: 'error', message: 'repoPath (string) is required' }, 400);
     }
     const artifactDir = typeof body?.artifactDir === 'string' ? body.artifactDir : undefined;
+    // artifactDir is a plain build-dir name (e.g. "dist"); reject separators/traversal so it can't
+    // redirect the read outside the repo.
+    if (artifactDir !== undefined && /[\\/]|\.\./.test(artifactDir)) {
+      return c.json(
+        { status: 'error', message: 'artifactDir must be a plain directory name' },
+        400,
+      );
+    }
 
-    let model;
+    // TODO(#35): once internal SSO auth lands, constrain repoPath to an allowlisted base directory
+    // (resolve + verify it stays under a configured root). Today a client-supplied absolute path is
+    // read from the server filesystem — acceptable only because this surface is not yet exposed.
+    let model: InventoryModel;
     try {
       model = ingest(repoPath, artifactDir ? { artifactDir } : {});
     } catch (err) {

@@ -70,6 +70,15 @@ describe('ingestion API', () => {
     expect(res.status).toBe(400);
   });
 
+  it('POST /ingest rejects a traversal artifactDir with 400', async () => {
+    const res = await testApp().request('/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ repoPath: fixtureRepo, artifactDir: '../../etc' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('POST /ingest with a nonexistent repo is 422', async () => {
     const res = await testApp().request('/ingest', {
       method: 'POST',
