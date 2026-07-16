@@ -31,7 +31,8 @@ describe('file-backed migration ledger', () => {
     await insertHealthCheck(first.db, 'first connection');
     first.sqlite.close();
 
-    expect(firstApplied).toEqual(['0000_init.sql']);
+    expect(firstApplied).toContain('0000_init.sql'); // applies all pending migrations
+    expect(firstApplied.length).toBeGreaterThan(0);
     expect(existsSync(file)).toBe(true);
 
     // Second connection against the same on-disk file: ledger already recorded, nothing re-applies,

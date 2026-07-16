@@ -15,6 +15,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.10",
     "@lighter/db": "workspace:*",
+    "@lighter/ingestion": "workspace:*",
     "hono": "^4.12.30"
   },
   "devDependencies": {
