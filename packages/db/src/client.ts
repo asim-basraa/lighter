@@ -39,7 +39,10 @@ export function createClient(config: DbConfig): Client {
 
 /** Read config from the environment, defaulting to an in-memory SQLite database. */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): DbConfig {
-  const dialect = (env.DB_DIALECT as Dialect | undefined) ?? 'sqlite';
+  const raw = env.DB_DIALECT ?? 'sqlite';
+  if (raw !== 'sqlite' && raw !== 'postgres') {
+    throw new Error(`Unknown DB_DIALECT="${raw}". Expected "sqlite" or "postgres".`);
+  }
   const url = env.DATABASE_URL ?? ':memory:';
-  return { dialect, url };
+  return { dialect: raw, url };
 }
