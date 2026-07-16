@@ -13,6 +13,12 @@ describe('ingest CLI', () => {
     expect(parsed.tokens.length).toBeGreaterThan(0);
   });
 
+  it('accepts the --artifact-dir flag before the repo path', () => {
+    const out = run(['node', 'cli', '--artifact-dir', 'artifacts', fixtureRepo]);
+    const parsed = JSON.parse(out) as { components: { name: string }[] };
+    expect(parsed.components.map((c) => c.name)).toContain('Button');
+  });
+
   it('throws a UsageError when no repo path is given', () => {
     expect(() => run(['node', 'cli'])).toThrow(UsageError);
   });

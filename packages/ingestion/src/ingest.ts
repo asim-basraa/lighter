@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { z } from 'zod';
 import {
   CatalogArtifact,
   TokensArtifact,
@@ -13,18 +14,25 @@ export interface IngestOptions {
   artifactDir?: string;
 }
 
-function readJson(path: string): unknown {
+/** Read + JSON-parse + schema-validate an artifact, always failing loudly with the file path. */
+function parseArtifact<S extends z.ZodTypeAny>(path: string, schema: S): z.infer<S> {
   let raw: string;
   try {
     raw = readFileSync(path, 'utf8');
   } catch {
     throw new Error(`Ingestion could not read required artifact: ${path}`);
   }
+  let json: unknown;
   try {
-    return JSON.parse(raw);
+    json = JSON.parse(raw);
   } catch (err) {
     throw new Error(`Ingestion found invalid JSON in ${path}: ${(err as Error).message}`);
   }
+  const result = schema.safeParse(json);
+  if (!result.success) {
+    throw new Error(`Ingestion found a malformed artifact at ${path}: ${result.error.message}`);
+  }
+  return result.data;
 }
 
 /**
@@ -36,8 +44,8 @@ function readJson(path: string): unknown {
 export function ingest(repoPath: string, opts: IngestOptions = {}): InventoryModel {
   const dir = opts.artifactDir ?? 'dist';
 
-  const tokensMap = TokensArtifact.parse(readJson(join(repoPath, dir, 'tokens.json')));
-  const catalog = CatalogArtifact.parse(readJson(join(repoPath, dir, 'catalog.json')));
+  const tokensMap = parseArtifact(join(repoPath, dir, 'tokens.json'), TokensArtifact);
+  const catalog = parseArtifact(join(repoPath, dir, 'catalog.json'), CatalogArtifact);
 
   const tokens: InventoryToken[] = Object.entries(tokensMap)
     .map(([name, value]) => ({ name, value, category: name.split('.')[0] ?? name }))

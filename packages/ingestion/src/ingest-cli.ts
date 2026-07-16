@@ -11,12 +11,15 @@ export class UsageError extends Error {}
  */
 export function run(argv: string[]): string {
   const args = argv.slice(2);
-  const repoPath = args.find((a) => !a.startsWith('--'));
+  const dirFlag = args.indexOf('--artifact-dir');
+  const artifactDir = dirFlag >= 0 ? args[dirFlag + 1] : undefined;
+  // The positional repo path is the first non-flag token that is NOT the value of --artifact-dir,
+  // so flags may come before or after the path.
+  const flagValueIndex = dirFlag >= 0 ? dirFlag + 1 : -1;
+  const repoPath = args.find((a, i) => i !== flagValueIndex && !a.startsWith('--'));
   if (!repoPath) {
     throw new UsageError('Usage: lighter-ingest <repo-path> [--artifact-dir <dir>]');
   }
-  const dirFlag = args.indexOf('--artifact-dir');
-  const artifactDir = dirFlag >= 0 ? args[dirFlag + 1] : undefined;
 
   const model = ingest(repoPath, artifactDir ? { artifactDir } : {});
   return JSON.stringify(model, null, 2);

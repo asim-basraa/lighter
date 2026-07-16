@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,22 @@ describe('ingest — pure inventory projection of a design-system repo', () => {
       expect(() => ingest(empty)).toThrow(/could not read required artifact.*tokens\.json/is);
     } finally {
       rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it('reports the artifact path when an artifact is structurally malformed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bad-ds-'));
+    const art = join(dir, 'artifacts');
+    mkdirSync(art);
+    // valid JSON, but a token value is a number rather than a string
+    writeFileSync(join(art, 'tokens.json'), JSON.stringify({ 'space.4': 16 }));
+    writeFileSync(join(art, 'catalog.json'), JSON.stringify({ components: {} }));
+    try {
+      expect(() => ingest(dir, { artifactDir: 'artifacts' })).toThrow(
+        /malformed artifact.*tokens\.json/is,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
