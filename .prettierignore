@@ -2,5 +2,6 @@
 pnpm-lock.yaml
 **/migrations/**
 **/dist/**
+**/.next/**
 coverage/
 node_modules/

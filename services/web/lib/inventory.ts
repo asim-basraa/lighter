@@ -35,7 +35,11 @@ export function apiBaseUrl(): string {
   return process.env.LIGHTER_API_URL ?? 'http://localhost:3000';
 }
 
-/** The default production fetcher: `GET {LIGHTER_API_URL}/inventory`. */
+/**
+ * The default production fetcher: `GET {LIGHTER_API_URL}/inventory`. `no-store` so the inventory is
+ * re-read on every request rather than served from Next's data cache — the dashboard must reflect
+ * the latest ingest.
+ */
 export function apiInventoryFetcher(baseUrl: string = apiBaseUrl()): InventoryFetcher {
-  return () => fetch(new URL('/inventory', baseUrl));
+  return () => fetch(new URL('/inventory', baseUrl), { cache: 'no-store' });
 }
