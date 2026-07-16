@@ -1,0 +1,25 @@
+{
+  "name": "@lighter/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.10",
+    "@lighter/db": "workspace:*",
+    "hono": "^4.12.30"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
