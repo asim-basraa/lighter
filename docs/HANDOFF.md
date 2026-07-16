@@ -32,11 +32,16 @@ The gh token lacks **`workflow`** scope, so `.github/workflows/ci.yml` cannot be
 - Fix: run `gh auth refresh -h github.com -s workflow`, then re-add the file as its own small PR.
 - Until then, "CI passes" is validated by running those same commands locally (they pass).
 
+## Repo topology for PRs
+- Monorepo slices (`lighter`): branch + PR in `asim-basraa/lighter`, `Closes #N` auto-closes.
+- Design-system slices (#2,#3,...): branch + PR in `asim-basraa/lighter-example`; reference
+  `asim-basraa/lighter#N` and **close the issue manually** on merge (cross-repo keywords don't fire).
+
 ## Progress
 - [x] Setup: 42 SDLC skills synced to `.claude/skills/`; triage labels + `area:*` created; 37 issues published to board.
-- [x] **#1 Monorepo scaffold + Drizzle DB** — MERGED (PR #38, squash). `@lighter/db` with dialect-agnostic client, `_migrations` ledger, health_checks round-trip. 5 tests green.
-- [ ] **#2 lighter-example tokens** — NEXT.
-- [ ] #3 components + page shell + catalog
+- [x] **#1 Monorepo scaffold + Drizzle DB** — MERGED (lighter PR #38). `@lighter/db`: dialect-agnostic client, `_migrations` ledger, health_checks round-trip. 5 tests.
+- [x] **#2 lighter-example tokens** — MERGED (lighter-example PR #1). Typed token source (5 categories) + `pnpm build` → dist/tokens.json (flat, ingestion-ready) + dist/tokens.css. 7 tests. Collision guard + null-safe flatten.
+- [ ] **#3 components + page shell + json-render catalog** — NEXT. ⚠️ Pulls in **json-render (Vercel Labs)** — verify its real package name + catalog/Zod API (web) BEFORE coding; it drives ingestion (#4) and generation (#17). Lives in lighter-example repo.
 - [ ] #4 catalog ingestion pure fn + CLI (first end-to-end)
 - [ ] #5 ingestion health findings
 - [ ] #6 service bootstrap · #7 ingestion API endpoint
