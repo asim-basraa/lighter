@@ -1,0 +1,25 @@
+# Reference root shape for docs/openapi/openapi.yaml — copy/adapt in projects.
+openapi: 3.1.0
+info:
+  title: Agentic SDLC PoC API
+  version: 0.1.0
+  description: HTTP contract for Next.js route handlers under app/api/
+servers:
+  - url: http://localhost:3000
+    description: Local dev (next dev)
+paths: {}
+components:
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: Validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
