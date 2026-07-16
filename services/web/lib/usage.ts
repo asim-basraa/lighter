@@ -36,7 +36,9 @@ export function usageFor(specs: SpecRecord[], component: string): UsageRef[] {
     refs.push({ screen: spec.screen, version: spec.version });
   }
   return refs.sort(
-    (a, b) => a.screen.localeCompare(b.screen) || a.version.localeCompare(b.version),
+    (a, b) =>
+      a.screen.localeCompare(b.screen) ||
+      a.version.localeCompare(b.version, undefined, { numeric: true }),
   );
 }
 

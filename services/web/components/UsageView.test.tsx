@@ -35,10 +35,11 @@ describe('UsageView', () => {
     expect(within(card('PageShell')).getByText(/not used|no saved spec/i)).toBeTruthy();
   });
 
-  it('shows every component as unused when there are no saved specs (live state pending #15)', () => {
+  it('shows a distinct "no saved specs yet" notice when specs are empty (live state pending #15)', () => {
     render(<UsageView components={components} specs={[]} />);
-    expect(within(card('Button')).getByText(/not used|no saved spec/i)).toBeTruthy();
-    expect(within(card('PageShell')).getByText(/not used|no saved spec/i)).toBeTruthy();
+    // A single page-level notice — not 40 misleading per-component "Not used" rows.
+    expect(screen.getByText(/no saved specs yet/i)).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Button' })).toBeNull();
   });
 
   it('shows an empty state when there are no components at all', () => {

@@ -10,10 +10,11 @@ import { DashboardView } from '../../components/DashboardView.js';
 export const dynamic = 'force-dynamic';
 
 export default async function UsagePage() {
-  const [{ model, error }, specs] = await Promise.all([loadInventory(), loadSpecs()]);
+  const [inventory, specs] = await Promise.all([loadInventory(), loadSpecs()]);
+  const error = inventory.error ?? specs.error;
   return (
     <DashboardView title="Usage" error={error}>
-      <UsageView components={model?.components ?? []} specs={specs} />
+      <UsageView components={inventory.model?.components ?? []} specs={specs.specs} />
     </DashboardView>
   );
 }

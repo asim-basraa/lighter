@@ -21,6 +21,16 @@ export function UsageView({
     return <p style={muted}>No components ingested yet.</p>;
   }
 
+  if (specs.length === 0) {
+    // Distinct from a component being genuinely unused: no specs exist in the system yet, so there
+    // is nothing to derive usage from. Avoids reading as "every component is dead".
+    return (
+      <p role="status" style={notice}>
+        No saved specs yet — component usage appears here once specs are saved (spec model: #13–16).
+      </p>
+    );
+  }
+
   return (
     <ul style={list}>
       {components.map((component) => {
@@ -105,4 +115,13 @@ const muted: CSSProperties = {
   margin: 0,
   fontSize: 'var(--fontSize-sm)',
   color: 'var(--color-neutral-700)',
+};
+
+const notice: CSSProperties = {
+  margin: 0,
+  padding: 'var(--space-2) var(--space-4)',
+  borderRadius: 'var(--radius-md)',
+  background: 'var(--color-blue-100)',
+  color: 'var(--color-blue-700)',
+  fontSize: 'var(--fontSize-sm)',
 };
