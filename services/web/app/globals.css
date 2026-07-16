@@ -1,0 +1,14 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+  font-family: system-ui, sans-serif;
+}

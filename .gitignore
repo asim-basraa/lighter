@@ -7,6 +7,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Next.js (next-env.d.ts is committed so typecheck works without a prior `next build`)
+.next/
+
 # env & secrets
 .env
 .env.*
