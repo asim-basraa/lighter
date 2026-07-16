@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { SpecView, previews, type PreviewSpec } from 'lighter-example/ui';
 import type { InventoryComponent, HealthFinding } from '../lib/inventory.js';
-import { findingsFor } from '../lib/health.js';
+import { componentFindings } from '../lib/health.js';
 import { PropsTable } from './PropsTable.js';
 import { HealthBadge } from './HealthBadge.js';
 
@@ -31,7 +31,7 @@ export function ComponentGallery({
         <ComponentCard
           key={component.name}
           component={component}
-          findings={findingsFor(health, component.name)}
+          findings={componentFindings(health, component.name)}
         />
       ))}
     </ul>

@@ -10,7 +10,7 @@ import { KIND_LABEL } from '../lib/health.js';
 export function HealthBadge({ findings }: { findings: HealthFinding[] }) {
   if (findings.length === 0) {
     return (
-      <span role="status" aria-label="Healthy" style={{ ...pill, ...healthy }}>
+      <span role="img" aria-label="Healthy" style={{ ...pill, ...healthy }}>
         ✓ Healthy
       </span>
     );
@@ -19,7 +19,7 @@ export function HealthBadge({ findings }: { findings: HealthFinding[] }) {
   const kinds = [...new Set(findings.map((f) => KIND_LABEL[f.kind]))].join(', ');
   return (
     <span
-      role="status"
+      role="img"
       aria-label={`${findings.length} health ${findings.length === 1 ? 'issue' : 'issues'}: ${kinds}`}
       title={kinds}
       style={{ ...pill, ...warning }}

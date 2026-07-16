@@ -27,6 +27,6 @@ describe('HealthBadge', () => {
       { kind: 'missing-preview', target: 'Widget', message: 'no preview' },
     ];
     render(<HealthBadge findings={findings} />);
-    expect(screen.getByRole('status').getAttribute('aria-label')).toMatch(/missing preview/i);
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/missing preview/i);
   });
 });

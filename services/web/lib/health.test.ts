@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findingsByTarget, findingsFor, healthSummary } from './health.js';
+import { componentFindings, findingsByTarget, findingsFor, healthSummary } from './health.js';
 import type { HealthFinding } from './inventory.js';
 
 const findings: HealthFinding[] = [
@@ -41,5 +41,22 @@ describe('findingsByTarget / findingsFor', () => {
   it('filters the findings for a single target', () => {
     expect(findingsFor(findings, 'Widget')).toHaveLength(2);
     expect(findingsFor(findings, 'Nope')).toEqual([]);
+  });
+});
+
+describe('componentFindings', () => {
+  it('returns only component-scoped findings for the component', () => {
+    expect(componentFindings(findings, 'Widget').map((f) => f.kind)).toEqual([
+      'missing-description',
+      'missing-preview',
+    ]);
+  });
+
+  it('never attaches an orphaned-token finding to a component, even on a name clash', () => {
+    // A token target that collides with a component name must not leak onto that component.
+    const clash: HealthFinding[] = [
+      { kind: 'orphaned-token', target: 'Widget', message: 'token unused' },
+    ];
+    expect(componentFindings(clash, 'Widget')).toEqual([]);
   });
 });

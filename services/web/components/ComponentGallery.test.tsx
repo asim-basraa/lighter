@@ -64,4 +64,16 @@ describe('ComponentGallery', () => {
     const buttonEl = screen.getByRole('heading', { name: 'Button' }).closest('[data-component]')!;
     expect(within(buttonEl as HTMLElement).getByText(/healthy/i)).toBeTruthy();
   });
+
+  it('does not leak an orphaned-token finding onto a same-named component card', () => {
+    render(
+      <ComponentGallery
+        components={componentsFixture}
+        health={[{ kind: 'orphaned-token', target: 'Button', message: 'token unused' }]}
+      />,
+    );
+    // Even though the token target matches a component name, the Button card stays healthy.
+    const buttonEl = screen.getByRole('heading', { name: 'Button' }).closest('[data-component]')!;
+    expect(within(buttonEl as HTMLElement).getByText(/healthy/i)).toBeTruthy();
+  });
 });

@@ -26,7 +26,10 @@ export function HealthPanel({ findings }: { findings: HealthFinding[] }) {
         <strong>{summary.total}</strong> {summary.total === 1 ? 'finding' : 'findings'} (
         {(Object.keys(summary.byKind) as (keyof typeof summary.byKind)[])
           .filter((kind) => summary.byKind[kind] > 0)
-          .map((kind) => `${summary.byKind[kind]} ${KIND_LABEL[kind].toLowerCase()}`)
+          .map((kind) => {
+            const n = summary.byKind[kind];
+            return `${n} ${KIND_LABEL[kind].toLowerCase()}${n === 1 ? '' : 's'}`;
+          })
           .join(', ')}
         )
       </p>
