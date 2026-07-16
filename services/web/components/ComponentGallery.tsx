@@ -2,16 +2,25 @@
 
 import type { CSSProperties } from 'react';
 import { SpecView, previews, type PreviewSpec } from 'lighter-example/ui';
-import type { InventoryComponent } from '../lib/inventory.js';
+import type { InventoryComponent, HealthFinding } from '../lib/inventory.js';
+import { findingsFor } from '../lib/health.js';
 import { PropsTable } from './PropsTable.js';
+import { HealthBadge } from './HealthBadge.js';
 
 /**
  * The component gallery: one card per cataloged component, each rendering a LIVE preview of the real
  * component through lighter-example's `<SpecView>`. The component list comes from the inventory API
  * (see `lib/inventory`); the preview spec for a name comes from the design system's own `previews`
- * export. A component with no preview spec renders a note rather than an empty card.
+ * export. A component with no preview spec renders a note rather than an empty card. Each card also
+ * carries a health badge summarizing that component's ingestion findings.
  */
-export function ComponentGallery({ components }: { components: InventoryComponent[] }) {
+export function ComponentGallery({
+  components,
+  health = [],
+}: {
+  components: InventoryComponent[];
+  health?: HealthFinding[];
+}) {
   if (components.length === 0) {
     return <p style={muted}>No components ingested yet.</p>;
   }
@@ -19,17 +28,30 @@ export function ComponentGallery({ components }: { components: InventoryComponen
   return (
     <ul style={grid}>
       {components.map((component) => (
-        <ComponentCard key={component.name} component={component} />
+        <ComponentCard
+          key={component.name}
+          component={component}
+          findings={findingsFor(health, component.name)}
+        />
       ))}
     </ul>
   );
 }
 
-function ComponentCard({ component }: { component: InventoryComponent }) {
+function ComponentCard({
+  component,
+  findings,
+}: {
+  component: InventoryComponent;
+  findings: HealthFinding[];
+}) {
   const spec = previews[component.name] as PreviewSpec | undefined;
   return (
     <li style={card} data-component={component.name}>
-      <h3 style={cardTitle}>{component.name}</h3>
+      <div style={cardHeader}>
+        <h3 style={cardTitle}>{component.name}</h3>
+        <HealthBadge findings={findings} />
+      </div>
       <p style={muted}>{component.description}</p>
       <div style={previewFrame}>
         {spec ? <SpecView spec={spec} /> : <p style={muted}>No preview available</p>}
@@ -55,6 +77,13 @@ const card: CSSProperties = {
   padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
+  gap: 'var(--space-2)',
+};
+
+const cardHeader: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
   gap: 'var(--space-2)',
 };
 

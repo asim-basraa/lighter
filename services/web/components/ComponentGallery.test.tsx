@@ -49,4 +49,19 @@ describe('ComponentGallery', () => {
     render(<ComponentGallery components={[]} />);
     expect(screen.getByText(/no components/i)).toBeTruthy();
   });
+
+  it('shows a per-component health badge from the findings for that component', () => {
+    render(
+      <ComponentGallery
+        components={componentsFixture}
+        health={[{ kind: 'missing-preview', target: 'Card', message: 'Card has no preview.' }]}
+      />,
+    );
+    // Card has a finding → its card shows an issue count; Button (no findings) shows healthy.
+    const cardEl = screen.getByRole('heading', { name: 'Card' }).closest('[data-component]')!;
+    expect(within(cardEl as HTMLElement).getByText('1')).toBeTruthy();
+
+    const buttonEl = screen.getByRole('heading', { name: 'Button' }).closest('[data-component]')!;
+    expect(within(buttonEl as HTMLElement).getByText(/healthy/i)).toBeTruthy();
+  });
 });
