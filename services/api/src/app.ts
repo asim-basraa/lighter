@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { listHealthChecks, type Db } from '@lighter/db';
+import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
+import { ingest } from '@lighter/ingestion';
 
 export interface AppDeps {
   db: Db;
@@ -25,6 +26,39 @@ export function createApp(deps: AppDeps): Hono {
     } catch (err) {
       return c.json({ status: 'degraded', db: 'error', message: (err as Error).message }, 503);
     }
+  });
+
+  // Trigger ingestion of a design-system repo and persist the resulting inventory snapshot.
+  app.post('/ingest', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      repoPath?: unknown;
+      artifactDir?: unknown;
+    } | null;
+    const repoPath = body?.repoPath;
+    if (typeof repoPath !== 'string' || repoPath.length === 0) {
+      return c.json({ status: 'error', message: 'repoPath (string) is required' }, 400);
+    }
+    const artifactDir = typeof body?.artifactDir === 'string' ? body.artifactDir : undefined;
+
+    let model;
+    try {
+      model = ingest(repoPath, artifactDir ? { artifactDir } : {});
+    } catch (err) {
+      // A bad repo path / malformed artifacts is a client input problem, not a server fault.
+      return c.json({ status: 'error', message: (err as Error).message }, 422);
+    }
+
+    await saveInventory(deps.db, model);
+    return c.json({ status: 'ok', model }, 201);
+  });
+
+  // Serve the most recently ingested inventory model (the dashboard reads this).
+  app.get('/inventory', async (c) => {
+    const model = await latestInventory(deps.db);
+    if (!model) {
+      return c.json({ status: 'error', message: 'no inventory ingested yet' }, 404);
+    }
+    return c.json(model);
   });
 
   return app;
