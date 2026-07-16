@@ -41,6 +41,22 @@ describe('API service', () => {
     expect(res.status).toBe(404);
   });
 
+  it('shapes an uncaught error as a 500 via the onError seam', async () => {
+    const { app } = testApp();
+    // Mount a route that throws so the factory's app.onError seam is exercised end-to-end. The
+    // existing /health path catches its own errors (503), so this is the only path that reaches
+    // onError and asserts its consistent error body.
+    app.get('/boom', () => {
+      throw new Error('boom');
+    });
+
+    const res = await app.request('/boom');
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { status: string; message: string };
+    expect(body.status).toBe('error');
+    expect(body.message).toBe('boom');
+  });
+
   it('reports 503 degraded when the database is unreachable', async () => {
     const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
     runMigrations(sqlite);
