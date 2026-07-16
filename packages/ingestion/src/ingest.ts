@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { z } from 'zod';
+import { computeHealth } from './health.js';
 import {
   CatalogArtifact,
   TokensArtifact,
@@ -60,5 +61,7 @@ export function ingest(repoPath: string, opts: IngestOptions = {}): InventoryMod
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { components, tokens };
+  const health = computeHealth(catalog, tokens);
+
+  return { components, tokens, health };
 }
