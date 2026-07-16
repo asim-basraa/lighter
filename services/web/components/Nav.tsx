@@ -6,6 +6,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: '/', label: 'Components' },
   { href: '/tokens', label: 'Tokens' },
   { href: '/health', label: 'Health' },
+  { href: '/usage', label: 'Usage' },
 ];
 
 export function Nav() {
