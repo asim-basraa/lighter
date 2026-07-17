@@ -243,7 +243,20 @@ export class SpecStore {
 
   private async commit(message: string): Promise<void> {
     await this.git(['add', '-A']);
+    // Skip an empty commit — `git commit` errors on a clean index. This happens when a mutable file
+    // (INTENT.md) is re-written with byte-identical content; a no-op save should succeed, not 500.
+    if (await this.isIndexClean()) return;
     await this.git(['commit', '--quiet', '-m', message]);
+  }
+
+  /** Whether the staged index has no changes (`git diff --cached --quiet` exits 0 when clean). */
+  private async isIndexClean(): Promise<boolean> {
+    try {
+      await this.git(['diff', '--cached', '--quiet']);
+      return true;
+    } catch {
+      return false; // non-zero exit → there are staged changes
+    }
   }
 
   private async git(args: string[]): Promise<string> {

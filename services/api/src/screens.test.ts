@@ -397,6 +397,20 @@ describe('INTENT.md per screen (#32)', () => {
     });
   });
 
+  it('re-writing identical INTENT.md is an idempotent 200 (no empty-commit 500)', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+    const put = () =>
+      app.request('/screens/checkout/intent', {
+        method: 'PUT',
+        body: JSON.stringify({ intent: md }),
+        headers: { 'content-type': 'application/json' },
+      });
+    expect((await put()).status).toBe(200);
+    expect((await put()).status).toBe(200); // identical content — must not error on an empty commit
+    expect(await (await app.request('/screens/checkout/intent')).json()).toEqual({ intent: md });
+  });
+
   it('404s intent on an unknown screen; 400s a non-string body', async () => {
     const app = await testApp();
     await makeScreen(app);
