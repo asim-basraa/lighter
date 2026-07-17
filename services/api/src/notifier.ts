@@ -4,7 +4,7 @@
  * LLM client is, so tests never make real network calls and the delivery target is swappable.
  */
 
-/** A reviewer left a comment on a version. */
+/** A reviewer left a comment (or reply) on a version. */
 export interface CommentNotification {
   kind: 'comment';
   screenId: string;
@@ -12,6 +12,8 @@ export interface CommentNotification {
   elementId: string;
   author: string | null;
   body: string;
+  /** Parent comment id when this is a reply; null for a top-level comment. */
+  parentId: number | null;
 }
 
 /** A version was approved. */
@@ -45,19 +47,25 @@ export async function safeNotify(
 }
 
 /**
- * A notifier that POSTs each event as JSON to a configured webhook (Slack/Discord/tracker inbound
- * URL). The URL is the configurable delivery target. Network-touching, so excluded from coverage;
- * behavior is exercised via the injected fake in tests.
+ * A notifier that POSTs each event as a generic JSON payload to a configured inbound webhook (a
+ * tracker/chat endpoint, or a small adapter that reshapes it into a chat message). The URL is the
+ * configurable delivery target. The request is bounded by a timeout so a hanging sink can never stall
+ * the request that triggered it (the caller `safeNotify`s and awaits this). Network-touching, so
+ * excluded from coverage; behavior is exercised via the injected fake in tests.
  */
 /* c8 ignore start */
 export class WebhookNotifier implements Notifier {
-  constructor(private readonly url: string) {}
+  constructor(
+    private readonly url: string,
+    private readonly timeoutMs = 5000,
+  ) {}
 
   async notify(event: Notification): Promise<void> {
     const res = await fetch(this.url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(event),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!res.ok) {
       throw new Error(`webhook returned ${res.status}`);

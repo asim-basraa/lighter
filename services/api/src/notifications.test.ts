@@ -99,8 +99,29 @@ describe('notifications on comment / approval (#29)', () => {
         elementId: 'el-1',
         author: 'Dana',
         body: 'Tighten spacing',
+        parentId: null,
       },
     ]);
+  });
+
+  it('a reply emits a comment notification that carries its parentId', async () => {
+    const notifier = recordingNotifier();
+    const app = await testApp(notifier);
+    const token = await seedShared(app);
+    const root = (await (
+      await app.request(`/share/${token}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ elementId: 'el-1', body: 'root' }),
+        headers: json,
+      })
+    ).json()) as { id: number };
+    await app.request(`/share/${token}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ parentId: root.id, body: 'a reply' }),
+      headers: json,
+    });
+    const reply = notifier.events.at(-1) as { kind: string; parentId: number | null; body: string };
+    expect(reply).toMatchObject({ kind: 'comment', body: 'a reply', parentId: root.id });
   });
 
   it('emits an approval notification when a version is approved', async () => {
@@ -124,6 +145,43 @@ describe('notifications on comment / approval (#29)', () => {
     });
     expect(res.status).toBe(409);
     expect(notifier.events).toEqual([]); // no notification on a rejected transition
+  });
+
+  it('does not notify when approval is blocked by an incomplete sign-off (409)', async () => {
+    const notifier = recordingNotifier();
+    const app = await testApp(notifier);
+    await seedShared(app);
+    // Configure a sign-off set so approve is gated (#26), then approve with nothing signed.
+    await app.request('/screens/checkout/sign-off-set', {
+      method: 'PUT',
+      body: JSON.stringify({
+        parties: [
+          { party: 'acme', role: 'customer' },
+          { party: 'lead', role: 'internal' },
+        ],
+      }),
+      headers: json,
+    });
+    const res = await app.request('/screens/checkout/versions/1/approve', { method: 'POST' });
+    expect(res.status).toBe(409);
+    expect(notifier.events).toEqual([]); // gated approval must not notify
+  });
+
+  it('notifies once on approval, not again on an idempotent re-approve', async () => {
+    const notifier = recordingNotifier();
+    const app = await testApp(notifier);
+    await seedShared(app);
+    await app.request('/screens/checkout/versions/1/approve', { method: 'POST' });
+    await app.request('/screens/checkout/versions/1/approve', { method: 'POST' }); // idempotent 200
+    expect(notifier.events.filter((e) => e.kind === 'approval')).toHaveLength(1);
+  });
+
+  it('request-changes does not notify', async () => {
+    const notifier = recordingNotifier();
+    const app = await testApp(notifier);
+    await seedShared(app); // shared
+    await app.request('/screens/checkout/versions/1/request-changes', { method: 'POST' });
+    expect(notifier.events).toEqual([]);
   });
 
   it('a notifier failure does not break the comment (still 201)', async () => {

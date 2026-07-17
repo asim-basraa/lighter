@@ -34,6 +34,7 @@ describe('safeNotify', () => {
         elementId: 'el-0',
         author: null,
         body: 'hi',
+        parentId: null,
       }),
     ).resolves.toBeUndefined();
     expect(err).toHaveBeenCalled();

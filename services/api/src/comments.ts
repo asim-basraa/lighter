@@ -129,6 +129,7 @@ export function registerCommentRoutes(
       elementId: comment.elementId,
       author: comment.author,
       body: comment.body,
+      parentId: comment.parentId,
     });
     return c.json(comment, 201);
   });

@@ -83,6 +83,8 @@ export function registerApprovalRoutes(
   // (see SpecStore) — two racing transitions on one version could interleave into a lost update. A
   // conditional write (UPDATE … WHERE state = expected) would close that if we ever go multi-writer.
   type Precondition = (c: Context, id: string, version: number) => Promise<Response | null>;
+  // Best-effort side effect after a committed transition. MUST NOT throw — it runs after the state is
+  // already persisted, so a throw would surface a misleading 500 on a succeeded transition.
   type OnSuccess = (id: string, version: number) => Promise<void>;
   const transition = (
     path: string,
