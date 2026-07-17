@@ -89,7 +89,21 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
   - #8 gallery (live preview via `lighter-example/ui` `<SpecView>`; data from `/inventory`); #9 props table from props JSON Schema; #10 visual token inventory (`/tokens`); #11 health panel + per-component badges (`/health`); #12 usage/blast-radius (`/usage`).
   - Integration invariants recorded in memory `lighter-web-scaffold` (transpilePackages json-render, inline token CSS, force-dynamic, port 4000, root vitest.config).
   - **#12 seam**: `lib/specs.ts` `loadSpecs()` returns `[]` (no spec persistence yet) → usage view shows a "no saved specs yet" notice. Wire the real source here when #15 lands — no view change.
-- [ ] #13–16 spec model+versioning — NEXT. #15 unblocks #12's live specs (`loadSpecs`).
+- [x] **#13–16 spec model+versioning** — MERGED (lighter PRs #51–54).
+  - #13 (PR #51): `@lighter/spec` — internal framework-agnostic spec (nested `{type,props,children}`)
+    - json-render serializer isolated behind ONE module (option to emit A2UI later); lossless
+      round-trip; reserved-key + unrepresentable-field guards.
+  - #14 (PR #52): git-backed `SpecStore` in `services/api` — one dir/screen, one immutable file per
+    version, every mutation committed. Routes: `POST/GET /screens`, `GET /screens/:id`,
+    `POST /screens/:id/versions`, `GET /screens/:id/versions/:n`. Path-traversal guard on `:id`,
+    per-store mutation mutex (single-writer). `SPECS_DIR` env.
+  - #15 (PR #53): catalog validation on save — `@lighter/spec` `validateAgainstCatalog` (ajv) checks
+    props vs the ingested catalog's JSON Schemas + unknown components; 400 w/ structured issues, 422
+    if no catalog. **This unblocks #12's `loadSpecs`** (specs are now real + catalog-checked).
+  - #16 (PR #54): `POST /screens/:id/duplicate` — new screen whose v1 is a faithful copy of the
+    source's latest spec; source untouched, independent copy.
+- [ ] **#12 web `loadSpecs`** — now unblocked: wire `services/web/lib/specs.ts` to fetch screens +
+      versions from the API and derive `SpecRecord[]` (componentTypesOf each) instead of returning `[]`.
 - [ ] #17–20 generation · #21–30 review surface
 - [ ] #31–33 handoff bundle · #34, #36, #37 auth & freshness
 - ~~#35 internal SSO~~ — **DROPPED & CLOSED** (user, 2026-07-17): no SSO support needed. The GitHub
