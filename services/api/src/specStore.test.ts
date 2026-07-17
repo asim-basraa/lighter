@@ -3,7 +3,13 @@ import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SpecStore, slugify, ScreenExistsError, ScreenNotFoundError } from './specStore.js';
+import {
+  SpecStore,
+  slugify,
+  ScreenExistsError,
+  ScreenNotFoundError,
+  ScreenEmptyError,
+} from './specStore.js';
 import type { Spec } from '@lighter/spec';
 
 const spec: Spec = {
@@ -111,6 +117,44 @@ describe('SpecStore', () => {
     // Every save got a distinct version and the files are 1..8 contiguous.
     expect([...results].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     expect(await store.listVersions('checkout')).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it('duplicates a screen: new v1 copies the source latest, source untouched', async () => {
+    await store.createScreen('Checkout');
+    await store.saveVersion('checkout', spec);
+    const v2: Spec = { root: { type: 'Text', props: { content: 'v2' }, children: [] } };
+    await store.saveVersion('checkout', v2);
+
+    const dup = await store.duplicateScreen('checkout', 'Checkout Copy');
+    expect(dup).toEqual({ screen: { id: 'checkout-copy', name: 'Checkout Copy' }, version: 1 });
+    // New screen's v1 is the source's LATEST (v2).
+    expect(await store.getVersion('checkout-copy', 1)).toEqual(v2);
+    // Source is unchanged: still two versions with the same contents.
+    expect(await store.listVersions('checkout')).toEqual([1, 2]);
+    expect(await store.getVersion('checkout', 2)).toEqual(v2);
+  });
+
+  it('produces an independent copy — editing the duplicate does not touch the source', async () => {
+    await store.createScreen('Checkout');
+    await store.saveVersion('checkout', spec);
+    await store.duplicateScreen('checkout', 'Copy');
+    await store.saveVersion('copy', spec); // copy now has v1 + v2
+    expect(await store.listVersions('copy')).toEqual([1, 2]);
+    expect(await store.listVersions('checkout')).toEqual([1]); // source unaffected
+  });
+
+  it('refuses to duplicate a missing or spec-less source, or onto an existing name', async () => {
+    await expect(store.duplicateScreen('nope', 'X')).rejects.toBeInstanceOf(ScreenNotFoundError);
+
+    await store.createScreen('Empty');
+    await expect(store.duplicateScreen('empty', 'X')).rejects.toBeInstanceOf(ScreenEmptyError);
+
+    await store.createScreen('Checkout');
+    await store.saveVersion('checkout', spec);
+    await store.createScreen('Taken');
+    await expect(store.duplicateScreen('checkout', 'Taken')).rejects.toBeInstanceOf(
+      ScreenExistsError,
+    );
   });
 
   it('skips a corrupt screen.json instead of failing the whole listing', async () => {
