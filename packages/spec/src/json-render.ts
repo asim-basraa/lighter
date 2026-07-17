@@ -45,24 +45,21 @@ export function toJsonRender(spec: Spec): JsonRenderSpec {
   };
 
   const root = walk(spec.root);
-  return { root, elements };
+  // Mock data attached to the spec becomes json-render's initial `state`, so a rendered screen can
+  // read realistic values.
+  return spec.data ? { root, elements, state: spec.data } : { root, elements };
 }
 
 /**
  * Deserialize a json-render spec back to an internal spec by walking from the root. Ids are dropped.
  *
- * The internal spec is a thin subset of json-render: it models only `type`/`props`/`children`. If a
- * json-render spec carries something the internal spec can't represent — an element-level field
- * (`visible`/`on`/`repeat`/`watch`) or top-level `state` — this throws rather than silently dropping
- * it, so the loss is loud. (Round-trips that originate from `toJsonRender` never hit this.) Also
- * throws if the spec references an element id that isn't present.
+ * The internal spec is a thin subset of json-render: it models `type`/`props`/`children` plus
+ * top-level `state` (mapped to the spec's mock `data`). If a json-render spec carries an element-
+ * level field the internal spec can't represent (`visible`/`on`/`repeat`/`watch`), this throws rather
+ * than silently dropping it, so the loss is loud. (Round-trips that originate from `toJsonRender`
+ * never hit this.) Also throws if the spec references an element id that isn't present.
  */
 export function fromJsonRender(jr: JsonRenderSpec): Spec {
-  if (jr.state !== undefined) {
-    throw new Error(
-      'json-render spec has top-level `state`, which the internal spec cannot represent yet',
-    );
-  }
   const build = (id: string): SpecNode => {
     const element = jr.elements[id];
     if (!element) {
@@ -81,7 +78,9 @@ export function fromJsonRender(jr: JsonRenderSpec): Spec {
       children: (element.children ?? []).map(build),
     };
   };
-  return { root: build(jr.root) };
+  const spec: Spec = { root: build(jr.root) };
+  if (jr.state !== undefined) spec.data = { ...jr.state };
+  return spec;
 }
 
 /** Whether a json-render spec is structurally valid (no error-severity issues). Warnings are OK. */

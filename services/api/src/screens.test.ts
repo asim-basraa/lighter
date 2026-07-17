@@ -158,6 +158,35 @@ describe('screen + spec-version API', () => {
   });
 });
 
+describe('mock data on a spec version (#20)', () => {
+  const post = (app: Awaited<ReturnType<typeof testApp>>, path: string, body: unknown) =>
+    app.request(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('attaches mock data to a version and it travels with the version', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    const withData = {
+      root: {
+        type: 'PageShell',
+        props: { title: 'Checkout' },
+        children: [{ type: 'Text', props: { content: 'Hi', size: 'md' }, children: [] }],
+      },
+      data: { customer: { name: 'Alice' }, items: [{ sku: 'A1' }] },
+    };
+    // Catalog validation ignores spec-level data; the version saves.
+    const saved = await post(app, '/screens/checkout/versions', { spec: withData });
+    expect(saved.status).toBe(201);
+
+    // The stored version carries the mock data back.
+    const fetched = await (await app.request('/screens/checkout/versions/1')).json();
+    expect((fetched as { spec: { data?: unknown } }).spec.data).toEqual(withData.data);
+  });
+});
+
 describe('spec catalog validation on save (#15)', () => {
   const post = (app: Awaited<ReturnType<typeof testApp>>, path: string, body: unknown) =>
     app.request(path, {

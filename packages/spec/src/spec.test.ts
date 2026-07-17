@@ -108,10 +108,28 @@ describe('spec ↔ json-render serialization', () => {
     ).toThrow(/cannot represent/);
   });
 
-  it('fails loudly deserializing a spec with top-level state', () => {
-    expect(() =>
-      fromJsonRender({ root: 'a', elements: { a: { type: 'T', props: {} } }, state: { n: 1 } }),
-    ).toThrow(/state/);
+  it("maps json-render top-level state to the spec's mock data", () => {
+    const spec = fromJsonRender({
+      root: 'a',
+      elements: { a: { type: 'T', props: {} } },
+      state: { user: { name: 'Alice' } },
+    });
+    expect(spec.data).toEqual({ user: { name: 'Alice' } });
+  });
+
+  it('serializes mock data to json-render state and round-trips it losslessly', () => {
+    const withData: Spec = {
+      root: { type: 'Text', props: { content: 'Hi' }, children: [] },
+      data: { user: { name: 'Alice' }, items: [1, 2, 3] },
+    };
+    const jr = toJsonRender(withData);
+    expect(jr.state).toEqual(withData.data);
+    expect(fromJsonRender(jr)).toEqual(withData);
+  });
+
+  it('omits state when the spec has no mock data', () => {
+    const jr = toJsonRender({ root: { type: 'Text', props: {}, children: [] } });
+    expect(jr.state).toBeUndefined();
   });
 });
 
