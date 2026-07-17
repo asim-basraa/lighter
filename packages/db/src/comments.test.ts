@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createClient } from './client.js';
 import { runMigrations, migrationsDir } from './migrate.js';
-import { createComment, listComments } from './comments.js';
+import { createComment, listComments, getComment } from './comments.js';
 
 function freshDb() {
   const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
@@ -66,5 +66,43 @@ describe('comments', () => {
   it('returns an empty list for a version with no comments', async () => {
     const db = freshDb();
     expect(await listComments(db, 'home', 9)).toEqual([]);
+  });
+
+  it('stores a reply with its parent id; top-level comments default to null parent', async () => {
+    const db = freshDb();
+    const root = await createComment(db, {
+      screenId: 'home',
+      version: 1,
+      elementId: 'el-0',
+      body: 'root',
+    });
+    expect(root.parentId).toBeNull();
+    const reply = await createComment(db, {
+      screenId: 'home',
+      version: 1,
+      elementId: 'el-0',
+      body: 'reply',
+      parentId: root.id,
+    });
+    expect(reply.parentId).toBe(root.id);
+
+    // Both live in the version's flat list (the thread tree is built from parentId).
+    const list = await listComments(db, 'home', 1);
+    expect(list.map((c) => [c.body, c.parentId])).toEqual([
+      ['root', null],
+      ['reply', root.id],
+    ]);
+  });
+
+  it('fetches a single comment by id (to validate a reply parent)', async () => {
+    const db = freshDb();
+    const c = await createComment(db, {
+      screenId: 'home',
+      version: 1,
+      elementId: 'el-0',
+      body: 'x',
+    });
+    expect(await getComment(db, c.id)).toMatchObject({ id: c.id, body: 'x' });
+    expect(await getComment(db, 9999)).toBeNull();
   });
 });

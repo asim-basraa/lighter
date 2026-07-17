@@ -3,6 +3,7 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import type { SpecElement } from '../lib/specElements.js';
 import { postComment, type CommentRecord, type NewComment } from '../lib/comments.js';
+import { threadComments } from '../lib/threadComments.js';
 import { formatDeployedAt } from '../lib/deployedAt.js';
 
 /** Injectable so tests drive the panel without a network call; defaults to the real same-origin POST. */
@@ -30,26 +31,29 @@ export function CommentsPanel({
 }) {
   const [comments, setComments] = useState(initialComments);
   const [elementId, setElementId] = useState(elements[0]?.id ?? '');
+  const [replyTo, setReplyTo] = useState<CommentRecord | null>(null);
   const [body, setBody] = useState('');
   const [author, setAuthor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const typeOf = useMemo(() => new Map(elements.map((e) => [e.id, e.type])), [elements]);
+  const threads = useMemo(() => threadComments(comments), [comments]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (body.trim().length === 0 || elementId.length === 0) return;
+    // A reply needs a target; a top-level comment needs an element anchor.
+    if (body.trim().length === 0 || (replyTo === null && elementId.length === 0)) return;
     setPending(true);
     setError(null);
+    const input: NewComment = replyTo
+      ? { parentId: replyTo.id, body: body.trim(), author: author.trim() || undefined }
+      : { elementId, body: body.trim(), author: author.trim() || undefined };
     try {
-      const created = await submit(token, {
-        elementId,
-        body: body.trim(),
-        author: author.trim() || undefined,
-      });
+      const created = await submit(token, input);
       setComments((prev) => [...prev, created]);
       setBody(''); // keep the element + name for the next comment
+      setReplyTo(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post your comment.');
     } finally {
@@ -63,39 +67,69 @@ export function CommentsPanel({
 
       {loadError ? (
         <p style={muted}>Couldn’t load existing comments. You can still leave a new one below.</p>
-      ) : comments.length === 0 ? (
+      ) : threads.length === 0 ? (
         <p style={muted}>No comments yet. Choose an element below to leave the first.</p>
       ) : (
         <ul role="list" aria-label="Comments" style={list}>
-          {comments.map((c) => (
-            <li key={c.id} style={item}>
-              <p style={itemBody}>{c.body}</p>
+          {threads.map(({ root, replies }) => (
+            <li key={root.id} style={item}>
+              <p style={itemBody}>{root.body}</p>
               <p style={meta}>
                 <span style={anchor}>
-                  {c.elementId}
-                  {typeOf.get(c.elementId) ? ` · ${typeOf.get(c.elementId)}` : ''}
+                  {root.elementId}
+                  {typeOf.get(root.elementId) ? ` · ${typeOf.get(root.elementId)}` : ''}
                 </span>
                 {' · '}
-                {c.author ?? 'Anonymous'}
+                {root.author ?? 'Anonymous'}
                 {' · '}
-                {formatDeployedAt(c.createdAt)}
+                {formatDeployedAt(root.createdAt)}
               </p>
+              {replies.length > 0 ? (
+                <ul style={replyList}>
+                  {replies.map((r) => (
+                    <li key={r.id} style={replyItem}>
+                      <p style={itemBody}>{r.body}</p>
+                      <p style={meta}>
+                        {r.author ?? 'Anonymous'}
+                        {' · '}
+                        {formatDeployedAt(r.createdAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <button type="button" style={replyButton} onClick={() => setReplyTo(root)}>
+                Reply
+              </button>
             </li>
           ))}
         </ul>
       )}
 
       <form onSubmit={onSubmit} style={form}>
-        <label style={field}>
-          Element
-          <select value={elementId} onChange={(e) => setElementId(e.target.value)} style={control}>
-            {elements.map((el) => (
-              <option key={el.id} value={el.id}>
-                {el.id} · {el.type}
-              </option>
-            ))}
-          </select>
-        </label>
+        {replyTo ? (
+          <p style={replyingTo}>
+            Replying to {replyTo.author ?? 'Anonymous'}
+            <button type="button" style={linkButton} onClick={() => setReplyTo(null)}>
+              Cancel
+            </button>
+          </p>
+        ) : (
+          <label style={field}>
+            Element
+            <select
+              value={elementId}
+              onChange={(e) => setElementId(e.target.value)}
+              style={control}
+            >
+              {elements.map((el) => (
+                <option key={el.id} value={el.id}>
+                  {el.id} · {el.type}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label style={field}>
           Comment
           <textarea
@@ -103,7 +137,7 @@ export function CommentsPanel({
             onChange={(e) => setBody(e.target.value)}
             rows={3}
             style={control}
-            placeholder="What should change?"
+            placeholder={replyTo ? 'Write a reply…' : 'What should change?'}
           />
         </label>
         <label style={field}>
@@ -116,7 +150,7 @@ export function CommentsPanel({
           </p>
         ) : null}
         <button type="submit" disabled={pending || body.trim().length === 0} style={button}>
-          {pending ? 'Posting…' : 'Post comment'}
+          {pending ? 'Posting…' : replyTo ? 'Post reply' : 'Post comment'}
         </button>
       </form>
     </section>
@@ -159,6 +193,42 @@ const meta: CSSProperties = {
   color: 'var(--color-neutral-500)',
 };
 const anchor: CSSProperties = { fontFamily: 'monospace', color: 'var(--color-blue-700)' };
+const replyList: CSSProperties = {
+  listStyle: 'none',
+  margin: 'var(--space-2) 0 0',
+  padding: '0 0 0 var(--space-4)',
+  borderLeft: '2px solid var(--color-neutral-300)',
+  display: 'grid',
+  gap: 'var(--space-2)',
+};
+const replyItem: CSSProperties = { margin: 0 };
+const replyButton: CSSProperties = {
+  marginTop: 'var(--space-2)',
+  padding: '2px var(--space-2)',
+  background: 'transparent',
+  border: '1px solid var(--color-neutral-300)',
+  borderRadius: 'var(--radius-sm)',
+  color: 'var(--color-blue-700)',
+  fontSize: 'var(--fontSize-xs)',
+  cursor: 'pointer',
+};
+const replyingTo: CSSProperties = {
+  margin: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-2)',
+  fontSize: 'var(--fontSize-sm)',
+  color: 'var(--color-neutral-700)',
+};
+const linkButton: CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  color: 'var(--color-blue-700)',
+  cursor: 'pointer',
+  textDecoration: 'underline',
+  padding: 0,
+  font: 'inherit',
+};
 
 const form: CSSProperties = { display: 'grid', gap: 'var(--space-3)' };
 const field: CSSProperties = {

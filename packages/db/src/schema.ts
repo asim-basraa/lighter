@@ -63,6 +63,8 @@ export const comments = sqliteTable('comments', {
   elementId: text('element_id').notNull(),
   body: text('body').notNull(),
   author: text('author'),
+  /** Parent comment id for a reply; NULL for a top-level comment. Threads are one level deep (#24). */
+  parentId: integer('parent_id'),
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),

@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import type { SpecElement } from '../lib/specElements.js';
-import type { CommentRecord } from '../lib/comments.js';
+import type { CommentRecord, NewComment } from '../lib/comments.js';
 import { CommentsPanel } from './CommentsPanel.js';
 
 afterEach(cleanup);
@@ -20,9 +20,20 @@ const existing: CommentRecord[] = [
     elementId: 'el-1',
     body: 'Should this be secondary?',
     author: 'Dana',
+    parentId: null,
     createdAt: '2026-07-17 09:30:00',
   },
 ];
+
+const record = (over: Partial<CommentRecord> & { id: number; body: string }): CommentRecord => ({
+  screenId: 'checkout',
+  version: 2,
+  elementId: 'el-1',
+  author: null,
+  parentId: null,
+  createdAt: '2026-07-17 09:30:00',
+  ...over,
+});
 
 describe('CommentsPanel', () => {
   it('lists existing comments with their element anchor', () => {
@@ -41,17 +52,13 @@ describe('CommentsPanel', () => {
   });
 
   it('submits a new comment for the chosen element and shows it', async () => {
-    const submit = vi.fn(
-      async (_token: string, input: { elementId: string; body: string; author?: string }) =>
-        ({
-          id: 2,
-          screenId: 'checkout',
-          version: 2,
-          elementId: input.elementId,
-          body: input.body,
-          author: input.author ?? null,
-          createdAt: '2026-07-17 10:00:00',
-        }) satisfies CommentRecord,
+    const submit = vi.fn(async (_token: string, input: NewComment) =>
+      record({
+        id: 2,
+        body: input.body,
+        elementId: input.elementId ?? 'el-1',
+        parentId: input.parentId ?? null,
+      }),
     );
     render(<CommentsPanel token="tok" elements={elements} initialComments={[]} submit={submit} />);
 
@@ -68,6 +75,39 @@ describe('CommentsPanel', () => {
     );
     // The new comment appears in the list.
     expect(await screen.findByText('Add a loading state')).toBeTruthy();
+  });
+
+  it('renders replies nested under their root comment', () => {
+    const root = record({ id: 1, body: 'Root note' });
+    const reply = record({ id: 2, body: 'A reply', parentId: 1, author: 'Ravi' });
+    render(<CommentsPanel token="tok" elements={elements} initialComments={[root, reply]} />);
+    const list = screen.getByRole('list', { name: /comments/i });
+    expect(within(list).getByText('Root note')).toBeTruthy();
+    expect(within(list).getByText('A reply')).toBeTruthy();
+  });
+
+  it('replies to a comment: posts a parentId and hides the element picker', async () => {
+    const submit = vi.fn(async (_token: string, input: NewComment) =>
+      record({ id: 2, body: input.body, parentId: input.parentId ?? null }),
+    );
+    const root = record({ id: 1, body: 'Root note' });
+    render(
+      <CommentsPanel token="tok" elements={elements} initialComments={[root]} submit={submit} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
+    // The element anchor picker is gone — a reply inherits the parent's element.
+    expect(screen.queryByLabelText('Element')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Comment'), { target: { value: 'Agreed' } });
+    fireEvent.click(screen.getByRole('button', { name: /post reply/i }));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit).toHaveBeenCalledWith(
+      'tok',
+      expect.objectContaining({ parentId: 1, body: 'Agreed' }),
+    );
+    expect(await screen.findByText('Agreed')).toBeTruthy();
   });
 
   it('surfaces a submit error and keeps the draft', async () => {
