@@ -131,6 +131,16 @@ describe('spec ↔ json-render serialization', () => {
     const jr = toJsonRender({ root: { type: 'Text', props: {}, children: [] } });
     expect(jr.state).toBeUndefined();
   });
+
+  it('does not alias mock data across the boundary', () => {
+    const src: Spec = {
+      root: { type: 'Text', props: {}, children: [] },
+      data: { count: 1 },
+    };
+    const jr = toJsonRender(src);
+    (jr.state as { count: number }).count = 99;
+    expect(src.data!.count).toBe(1); // internal spec untouched
+  });
 });
 
 describe('SpecSchema', () => {

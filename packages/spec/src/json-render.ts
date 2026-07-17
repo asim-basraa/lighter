@@ -45,9 +45,10 @@ export function toJsonRender(spec: Spec): JsonRenderSpec {
   };
 
   const root = walk(spec.root);
-  // Mock data attached to the spec becomes json-render's initial `state`, so a rendered screen can
-  // read realistic values.
-  return spec.data ? { root, elements, state: spec.data } : { root, elements };
+  // Mock data attached to the spec is emitted as json-render's top-level `state` — the render input a
+  // future state-seeding render path (or a data-bound component) would consume. Copied, so the
+  // emitted spec never aliases the internal spec's mutable data.
+  return spec.data ? { root, elements, state: { ...spec.data } } : { root, elements };
 }
 
 /**
