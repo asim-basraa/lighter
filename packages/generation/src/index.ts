@@ -1,5 +1,10 @@
 export { type LlmClient } from './llm.js';
-export { buildSystemPrompt, type CatalogComponent } from './prompt.js';
+export {
+  buildSystemPrompt,
+  catalogPrompt,
+  type CatalogComponent,
+  type CatalogAction,
+} from './prompt.js';
 export {
   generateSpec,
   generateVariations,

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { componentTypesOf } from '@lighter/spec';
 import { generateSpec, generateVariations, refineSpec, GenerationError } from './generate.js';
 import type { Spec } from '@lighter/spec';
-import { buildSystemPrompt, type CatalogComponent } from './prompt.js';
+import { buildSystemPrompt, catalogPrompt, type CatalogComponent } from './prompt.js';
 import type { LlmClient } from './llm.js';
 
 const catalog: CatalogComponent[] = [
@@ -288,5 +288,46 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('PageShell');
     expect(prompt).toContain('Text');
     expect(prompt).toMatch(/root node's type MUST be "PageShell"/);
+  });
+
+  it('reuses the catalog prompt verbatim (#31)', () => {
+    expect(buildSystemPrompt(catalog, 'PageShell')).toContain(catalogPrompt(catalog));
+  });
+});
+
+describe('catalogPrompt (#31)', () => {
+  it('is deterministic — two independently-built, deeply-equal catalogs yield identical output', () => {
+    const a: CatalogComponent[] = [{ name: 'Button', description: 'A button', props: { x: 1 } }];
+    const b: CatalogComponent[] = [{ name: 'Button', description: 'A button', props: { x: 1 } }];
+    expect(catalogPrompt(a)).toBe(catalogPrompt(b));
+  });
+
+  it('renders an empty catalog as an empty string (no crash)', () => {
+    expect(catalogPrompt([])).toBe('');
+    expect(buildSystemPrompt([], 'PageShell')).toMatch(/Available components:/);
+  });
+
+  it('includes each component description, its props JSON Schema, and an actions line', () => {
+    const out = catalogPrompt(catalog);
+    for (const c of catalog) {
+      expect(out).toContain(`### ${c.name}`);
+      expect(out).toContain(c.description);
+      expect(out).toContain(JSON.stringify(c.props));
+    }
+    // Components without actions render "Actions: none".
+    expect(out).toMatch(/Actions: none/);
+  });
+
+  it('renders declared actions with their descriptions', () => {
+    const withActions: CatalogComponent[] = [
+      {
+        name: 'Button',
+        description: 'A button',
+        props: {},
+        actions: [{ name: 'submit', description: 'submit the form' }, { name: 'reset' }],
+      },
+    ];
+    const out = catalogPrompt(withActions);
+    expect(out).toContain('Actions: submit — submit the form, reset');
   });
 });
