@@ -157,6 +157,13 @@ describe('SpecStore', () => {
     );
   });
 
+  it('returns null for a corrupt version file rather than throwing', async () => {
+    await store.createScreen('Checkout');
+    await store.saveVersion('checkout', spec);
+    writeFileSync(join(root, 'checkout', '1.json'), '{ not valid json');
+    expect(await store.getVersion('checkout', 1)).toBeNull();
+  });
+
   it('skips a corrupt screen.json instead of failing the whole listing', async () => {
     await store.createScreen('Checkout');
     mkdirSync(join(root, 'broken'));

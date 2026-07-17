@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -281,6 +281,16 @@ describe('GET /specs — derived usage records', () => {
     // A screen with no version is omitted.
     await post(app, '/screens', { name: 'Empty' });
     expect(await (await app.request('/specs')).json()).toEqual([]);
+  });
+
+  it('omits (does not 500) a screen whose latest version file is corrupt', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    await post(app, '/screens/checkout/versions', { spec });
+    writeFileSync(join(root, 'checkout', '1.json'), 'corrupt');
+    const res = await app.request('/specs');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
   });
 
   it("returns one record per screen's latest version with its component types", async () => {

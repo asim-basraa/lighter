@@ -188,12 +188,16 @@ export class SpecStore {
     });
   }
 
-  /** Fetch one version's spec, or null if the screen or version doesn't exist. */
+  /** Fetch one version's spec, or null if the screen/version doesn't exist or the file is corrupt. */
   async getVersion(id: string, version: number): Promise<Spec | null> {
     if (!isValidScreenId(id)) return null;
     const path = join(this.root, id, `${version}.json`);
     if (!existsSync(path)) return null;
-    return SpecSchema.parse(JSON.parse(await readFile(path, 'utf8')));
+    try {
+      return SpecSchema.parse(JSON.parse(await readFile(path, 'utf8')));
+    } catch {
+      return null; // corrupt/unparseable version file → treat as absent (matches getScreen)
+    }
   }
 
   /** Run a mutation exclusively, after any in-flight mutation on this store completes. */

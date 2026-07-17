@@ -26,7 +26,7 @@ export function UsageView({
     // is nothing to derive usage from. Avoids reading as "every component is dead".
     return (
       <p role="status" style={notice}>
-        No saved specs yet — component usage appears here once specs are saved (spec model: #13–16).
+        No saved specs yet — component usage appears here once screens have saved specs.
       </p>
     );
   }
