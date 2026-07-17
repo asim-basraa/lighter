@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
-import { createShare, resolveShare, type Db } from '@lighter/db';
+import { createShare, resolveShare, getVersionState, setVersionState, type Db } from '@lighter/db';
 import type { SpecStore } from './specStore.js';
+import { DEFAULT_STATE, isApprovalState } from './approvalState.js';
 
 /**
  * Mount the tokenized share routes. Registered only when a SpecStore is configured (a share points
@@ -38,6 +39,13 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
       );
     }
     const { token } = await createShare(db, id, version);
+    // Deploying advances the approval lifecycle draft → shared (#25). Only from draft, so a re-deploy
+    // never resets a version that's already shared / changes-requested / approved.
+    const stored = await getVersionState(db, id, version);
+    const current = stored && isApprovalState(stored) ? stored : DEFAULT_STATE;
+    if (current === DEFAULT_STATE) {
+      await setVersionState(db, id, version, 'shared');
+    }
     return c.json({ token }, 201);
   });
 
