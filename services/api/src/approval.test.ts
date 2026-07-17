@@ -123,6 +123,24 @@ describe('approval state machine (#25)', () => {
     expect((await requestChanges(app)).status).toBe(409);
   });
 
+  it('approve is idempotent when already approved (200, stays approved)', async () => {
+    const app = await testApp();
+    await seedVersion(app);
+    await deploy(app);
+    await approve(app);
+    expect((await approve(app)).status).toBe(200);
+    expect(await stateOf(await status(app))).toBe('approved');
+  });
+
+  it('re-deploying an approved version leaves it approved', async () => {
+    const app = await testApp();
+    await seedVersion(app);
+    await deploy(app);
+    await approve(app);
+    await deploy(app); // no-op on state
+    expect(await stateOf(await status(app))).toBe('approved');
+  });
+
   it('re-deploying does not reset a changes-requested version', async () => {
     const app = await testApp();
     await seedVersion(app);

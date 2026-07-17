@@ -16,7 +16,6 @@ describe('approval state machine (#25)', () => {
     expect(canTransition('shared', 'changes-requested')).toBe(true);
     expect(canTransition('shared', 'approved')).toBe(true);
     expect(canTransition('changes-requested', 'approved')).toBe(true);
-    expect(canTransition('changes-requested', 'shared')).toBe(true);
   });
 
   it('rejects illegal transitions', () => {
@@ -25,6 +24,8 @@ describe('approval state machine (#25)', () => {
     expect(canTransition('approved', 'shared')).toBe(false); // approved is terminal
     expect(canTransition('approved', 'changes-requested')).toBe(false);
     expect(canTransition('shared', 'draft')).toBe(false);
+    // No re-share: an immutable version's fix is a new version, not a re-open of this one.
+    expect(canTransition('changes-requested', 'shared')).toBe(false);
   });
 
   it('recognizes valid state strings', () => {

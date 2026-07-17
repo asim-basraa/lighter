@@ -40,7 +40,10 @@ export function registerApprovalRoutes(app: Hono, db: Db, store: SpecStore): voi
     return c.json({ version, state: await currentState(id, version) });
   });
 
-  // A transition endpoint: move a version to `to`, rejecting an illegal transition with 409.
+  // A transition endpoint: move a version to `to`, rejecting an illegal transition with 409. The
+  // read-check-write here is not atomic; like the rest of the API it assumes a single writing process
+  // (see SpecStore) — two racing transitions on one version could interleave into a lost update. A
+  // conditional write (UPDATE … WHERE state = expected) would close that if we ever go multi-writer.
   const transition = (path: string, to: ApprovalState) =>
     app.post(path, async (c) => {
       const id = c.req.param('id') ?? '';
