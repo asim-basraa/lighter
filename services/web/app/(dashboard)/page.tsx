@@ -1,6 +1,6 @@
-import { loadInventory } from '../lib/inventory.js';
-import { ComponentGallery } from '../components/ComponentGallery.js';
-import { DashboardView } from '../components/DashboardView.js';
+import { loadInventory } from '../../lib/inventory.js';
+import { ComponentGallery } from '../../components/ComponentGallery.js';
+import { DashboardView } from '../../components/DashboardView.js';
 
 /**
  * The inventory dashboard home: the component gallery. A server component — it fetches the latest

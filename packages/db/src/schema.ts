@@ -32,3 +32,20 @@ export const inventorySnapshots = sqliteTable('inventory_snapshots', {
 });
 
 export type InventorySnapshot = typeof inventorySnapshots.$inferSelect;
+
+/**
+ * A tokenized share link to one screen spec version (#21). The `token` is the only credential to
+ * view a deployed mock — no account. One share per (screen_id, version) so re-sharing a version
+ * yields a stable URL (enforced by a unique index on the pair; see migration 0002).
+ */
+export const shares = sqliteTable('shares', {
+  token: text('token').primaryKey(),
+  screenId: text('screen_id').notNull(),
+  version: integer('version').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type Share = typeof shares.$inferSelect;
+export type NewShare = typeof shares.$inferInsert;

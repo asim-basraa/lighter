@@ -1,7 +1,7 @@
-import { loadInventory } from '../../lib/inventory.js';
-import { loadSpecs } from '../../lib/specs.js';
-import { UsageView } from '../../components/UsageView.js';
-import { DashboardView } from '../../components/DashboardView.js';
+import { loadInventory } from '../../../lib/inventory.js';
+import { loadSpecs } from '../../../lib/specs.js';
+import { UsageView } from '../../../components/UsageView.js';
+import { DashboardView } from '../../../components/DashboardView.js';
 
 /**
  * The usage / blast-radius view: for each component, which saved screens and spec versions use it.
