@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: lighter
-      - name: Checkout lighter-example (sibling file: dependency)
+      - name: Checkout lighter-example (sibling file dependency)
         uses: actions/checkout@v4
         with:
           repository: asim-basraa/lighter-example
