@@ -102,9 +102,24 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
     if no catalog. **This unblocks #12's `loadSpecs`** (specs are now real + catalog-checked).
   - #16 (PR #54): `POST /screens/:id/duplicate` — new screen whose v1 is a faithful copy of the
     source's latest spec; source untouched, independent copy.
-- [ ] **#12 web `loadSpecs`** — now unblocked: wire `services/web/lib/specs.ts` to fetch screens +
-      versions from the API and derive `SpecRecord[]` (componentTypesOf each) instead of returning `[]`.
-- [ ] #17–20 generation · #21–30 review surface
+- [x] **#12 web `loadSpecs`** — DONE: `services/web/lib/specs.ts` `loadSpecs()` fetches `GET /specs`
+      and derives real `SpecRecord[]`; the usage/blast-radius view now runs off live saved specs.
+- [x] **#17–20 generation** — MERGED (lighter PRs #57–60). `@lighter/generation` — injectable
+      `LlmClient` boundary (Anthropic `claude-opus-4-8`), so tests never make paid calls.
+  - #17 (PR #57): `POST /generate` — catalog-constrained authoring; prompt→parse→validate-or-retry
+    (structured outputs can't constrain the recursive spec schema). Robust JSON extraction;
+    `GenerationError`→422, else generic 502 (no model-detail leak). Review fixes: brittle extraction,
+    error leak.
+  - #18 (PR #58): `POST /generate/variations` (N side-by-side) + web `VariationsView` renders each via
+    `toJsonRender` + `<SpecView>`. Added `@lighter/spec/render` browser-safe subpath (no ajv).
+  - #19 (PR #59): `POST /screens/:id/refine` — conversational follow-up on the LATEST version, saved
+    as the next version. Review fix: saveVersion moved out of the generation try (a save failure is
+    not a generation error).
+  - #20 (PR #60): attach mock `data` to a spec — optional `Spec.data`, serializes to json-render
+    top-level `state`, travels with the version (git-stored verbatim). Minimal per user: no
+    design-system change; render-time state seeding is a future option. Review fixes: copy data on
+    serialize (non-aliasing), honest AC2 comment.
+- [ ] #21–30 review surface
 - [ ] #31–33 handoff bundle · #34, #36, #37 auth & freshness
 - ~~#35 internal SSO~~ — **DROPPED & CLOSED** (user, 2026-07-17): no SSO support needed. The GitHub
   issue when auth is restored. The repoPath-hardening concern that rode along with #35 is preserved
