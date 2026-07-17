@@ -128,11 +128,12 @@ export function registerApprovalRoutes(app: Hono, db: Db, store: SpecStore): voi
     if (!Array.isArray(parties)) {
       return c.json({ status: 'error', message: 'parties (array) is required' }, 400);
     }
-    const typed = parties as SignOffPartyInput[];
-    const check = validateSignOffSet(typed);
+    const check = validateSignOffSet(parties);
     if (!check.ok) {
       return c.json({ status: 'error', message: check.message }, 400);
     }
+    // Validated above, so the cast is sound.
+    const typed = parties as SignOffPartyInput[];
     await setSignOffSet(
       db,
       id,

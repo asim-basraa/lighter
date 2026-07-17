@@ -142,4 +142,24 @@ describe('sign-off set enforcement (#26)', () => {
     expect((await approve(app)).status).toBe(200);
     expect(await stateOf(app)).toBe('approved');
   });
+
+  it('400s a malformed parties element instead of throwing a 500', async () => {
+    const app = await testApp();
+    await seedDeployed(app);
+    expect((await setSet(app, [null])).status).toBe(400);
+    expect((await setSet(app, ['not-an-object'])).status).toBe(400);
+  });
+
+  it('growing the set after a complete sign-off re-blocks approve', async () => {
+    const app = await testApp();
+    await seedDeployed(app);
+    await setSet(app, validSet);
+    await signOff(app, 'acme');
+    await signOff(app, 'lead'); // set complete for the current set
+    // Add a third required party before approving.
+    await setSet(app, [...validSet, { party: 'qa', role: 'internal' }]);
+    expect((await approve(app)).status).toBe(409); // qa hasn't signed
+    await signOff(app, 'qa');
+    expect((await approve(app)).status).toBe(200);
+  });
 });

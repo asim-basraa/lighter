@@ -14,18 +14,24 @@ export async function getSignOffSet(db: Db, screenId: string): Promise<SignOffPa
   return rows.map((r) => ({ party: r.party, role: r.role }));
 }
 
-/** Replace a screen's required sign-off set with the given parties (delete-then-insert). */
+/**
+ * Replace a screen's required sign-off set with the given parties. The delete + insert run in one
+ * transaction, so a failed insert can't leave the screen with an empty (ungated) set — the prior
+ * gated set is preserved. This is the security-relevant control, so it must not fail open.
+ */
 export async function setSignOffSet(
   db: Db,
   screenId: string,
   parties: SignOffPartyInput[],
 ): Promise<void> {
-  await db.delete(signOffConfig).where(eq(signOffConfig.screenId, screenId));
-  if (parties.length > 0) {
-    await db
-      .insert(signOffConfig)
-      .values(parties.map((p) => ({ screenId, party: p.party, role: p.role })));
-  }
+  db.transaction((tx) => {
+    tx.delete(signOffConfig).where(eq(signOffConfig.screenId, screenId)).run();
+    if (parties.length > 0) {
+      tx.insert(signOffConfig)
+        .values(parties.map((p) => ({ screenId, party: p.party, role: p.role })))
+        .run();
+    }
+  });
 }
 
 /** Record a party's sign-off on a version (idempotent — signing twice is a no-op). */
