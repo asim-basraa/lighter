@@ -16,7 +16,9 @@
     "@hono/node-server": "^2.0.10",
     "@lighter/db": "workspace:*",
     "@lighter/ingestion": "workspace:*",
-    "hono": "^4.12.30"
+    "@lighter/spec": "workspace:*",
+    "hono": "^4.12.30",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

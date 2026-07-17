@@ -1,0 +1,137 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createClient, runMigrations } from '@lighter/db';
+import type { Spec } from '@lighter/spec';
+import { createApp } from './app.js';
+import { SpecStore } from './specStore.js';
+
+const spec: Spec = {
+  root: {
+    type: 'PageShell',
+    props: { title: 'Checkout' },
+    children: [{ type: 'Text', props: { content: 'Hello', size: 'md' }, children: [] }],
+  },
+};
+
+let root: string;
+
+async function testApp() {
+  const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
+  runMigrations(sqlite);
+  root = mkdtempSync(join(tmpdir(), 'lighter-specs-api-'));
+  const specStore = new SpecStore(root);
+  await specStore.init();
+  return createApp({ db, specStore });
+}
+
+afterEach(() => {
+  if (root) rmSync(root, { recursive: true, force: true });
+});
+
+describe('screen + spec-version API', () => {
+  it('creates a screen, versions it, and fetches the version back', async () => {
+    const app = await testApp();
+
+    const created = await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Checkout' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ id: 'checkout', name: 'Checkout' });
+
+    const v1 = await app.request('/screens/checkout/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(v1.status).toBe(201);
+    expect(await v1.json()).toEqual({ version: 1 });
+
+    const v2 = await app.request('/screens/checkout/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(await v2.json()).toEqual({ version: 2 });
+
+    const meta = await app.request('/screens/checkout');
+    expect(meta.status).toBe(200);
+    expect(await meta.json()).toEqual({ id: 'checkout', name: 'Checkout', versions: [1, 2] });
+
+    const fetched = await app.request('/screens/checkout/versions/1');
+    expect(fetched.status).toBe(200);
+    expect(await fetched.json()).toEqual({ version: 1, spec });
+  });
+
+  it('lists screens', async () => {
+    const app = await testApp();
+    await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Settings' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    const res = await app.request('/screens');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([{ id: 'settings', name: 'Settings' }]);
+  });
+
+  it('409s on a duplicate screen', async () => {
+    const app = await testApp();
+    const body = JSON.stringify({ name: 'Checkout' });
+    const headers = { 'content-type': 'application/json' };
+    await app.request('/screens', { method: 'POST', body, headers });
+    const dupe = await app.request('/screens', { method: 'POST', body, headers });
+    expect(dupe.status).toBe(409);
+  });
+
+  it('400s a missing name and a missing spec', async () => {
+    const app = await testApp();
+    const noName = await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({}),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(noName.status).toBe(400);
+
+    await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Checkout' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    const badSpec = await app.request('/screens/checkout/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec: { root: { props: {} } } }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(badSpec.status).toBe(400);
+    expect(((await badSpec.json()) as { issues?: unknown }).issues).toBeDefined();
+  });
+
+  it('does not let a traversal id escape the store over HTTP', async () => {
+    const app = await testApp();
+    // Percent-encoded slashes survive URL parsing as a single :id param → must be refused.
+    expect((await app.request('/screens/..%2f..%2fetc')).status).toBe(404);
+    expect((await app.request('/screens/..%2f..%2fetc/versions/1')).status).toBe(404);
+    const write = await app.request('/screens/..%2f..%2fetc/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(write.status).toBe(404);
+  });
+
+  it('404s an unknown screen and an unknown version', async () => {
+    const app = await testApp();
+    expect((await app.request('/screens/nope')).status).toBe(404);
+    expect((await app.request('/screens/nope/versions/1')).status).toBe(404);
+    const orphanVersion = await app.request('/screens/nope/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(orphanVersion.status).toBe(404);
+  });
+});

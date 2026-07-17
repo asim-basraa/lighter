@@ -1,14 +1,18 @@
 import { Hono } from 'hono';
 import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
 import { ingest, type InventoryModel } from '@lighter/ingestion';
+import type { SpecStore } from './specStore.js';
+import { registerScreenRoutes } from './screens.js';
 
 export interface AppDeps {
   db: Db;
+  /** Git-backed store for screens + spec versions. When present, the /screens routes are mounted. */
+  specStore?: SpecStore;
 }
 
 /**
- * Build the Lighter API app over its dependencies (currently just the database). Kept as a factory
- * — not a module singleton — so tests construct it over an in-memory DB and drive it via
+ * Build the Lighter API app over its dependencies. Kept as a factory — not a module singleton — so
+ * tests construct it over an in-memory DB (and a temp-dir spec store) and drive it via
  * `app.request()`. Later slices mount their routes here.
  */
 export function createApp(deps: AppDeps): Hono {
@@ -74,6 +78,11 @@ export function createApp(deps: AppDeps): Hono {
     }
     return c.json(model);
   });
+
+  // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured.
+  if (deps.specStore) {
+    registerScreenRoutes(app, deps.specStore);
+  }
 
   return app;
 }
