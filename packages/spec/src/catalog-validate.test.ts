@@ -85,6 +85,37 @@ describe('validateAgainstCatalog', () => {
     expect(issue?.path).toBe('root/children/0');
   });
 
+  it('treats a prototype-chain key as an unknown component, not a crash', () => {
+    // `constructor`/`__proto__`/`toString` exist on the prototype; must not slip past the check.
+    for (const type of ['constructor', '__proto__', 'toString']) {
+      const spec: Spec = { root: { type, props: {}, children: [] } };
+      const issues = validateAgainstCatalog(spec, catalog);
+      expect(issues[0]).toMatchObject({ code: 'unknown-component', component: type });
+    }
+  });
+
+  it('reports a non-compilable catalog schema as an issue rather than throwing', () => {
+    const brokenCatalog: Catalog = {
+      Widget: { props: { $ref: '#/definitions/DoesNotExist' } },
+    };
+    const spec: Spec = { root: { type: 'Widget', props: {}, children: [] } };
+    const issues = validateAgainstCatalog(spec, brokenCatalog);
+    expect(issues[0]?.code).toBe('catalog-schema-invalid');
+  });
+
+  it('honors nullable-required props: null passes, omission fails', () => {
+    // Text.size is `.nullable()` → required but may be null.
+    const withNull: Spec = {
+      root: { type: 'Text', props: { content: 'Hi', size: null }, children: [] },
+    };
+    expect(validateAgainstCatalog(withNull, catalog)).toEqual([]);
+
+    const omitted: Spec = { root: { type: 'Text', props: { content: 'Hi' }, children: [] } };
+    expect(validateAgainstCatalog(omitted, catalog).some((i) => i.code === 'invalid-props')).toBe(
+      true,
+    );
+  });
+
   it('collects all issues, not just the first', () => {
     const spec: Spec = {
       root: {

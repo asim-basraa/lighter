@@ -198,6 +198,15 @@ describe('spec catalog validation on save (#15)', () => {
     expect(body.issues.some((i) => i.code === 'invalid-props')).toBe(true);
   });
 
+  it('400s (not 500s) a prototype-key component type', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    const res = await post(app, '/screens/checkout/versions', {
+      spec: { root: { type: 'constructor', props: {}, children: [] } },
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('422s a save when no catalog has been ingested', async () => {
     const app = await testApp({ ingest: false });
     await post(app, '/screens', { name: 'Checkout' });

@@ -1,7 +1,7 @@
 import type { Hono } from 'hono';
 import { ZodError } from 'zod';
 import { SpecSchema, validateAgainstCatalog, type Catalog, type Spec } from '@lighter/spec';
-import { SpecStore, ScreenExistsError } from './specStore.js';
+import { SpecStore, ScreenExistsError, ScreenNotFoundError } from './specStore.js';
 
 /** Loads the current design-system catalog to validate specs against, or null if none is ingested. */
 export type CatalogLoader = () => Promise<Catalog | null>;
@@ -91,8 +91,16 @@ export function registerScreenRoutes(
       return c.json({ status: 'error', message: 'spec does not match the catalog', issues }, 400);
     }
 
-    const version = await store.saveVersion(id, parsed);
-    return c.json({ version }, 201);
+    try {
+      const version = await store.saveVersion(id, parsed);
+      return c.json({ version }, 201);
+    } catch (err) {
+      // The screen could have been removed between the check above and the write (TOCTOU).
+      if (err instanceof ScreenNotFoundError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      throw err;
+    }
   });
 
   // Fetch one version's spec.

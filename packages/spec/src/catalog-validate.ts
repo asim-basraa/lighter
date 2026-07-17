@@ -14,7 +14,7 @@ export interface CatalogIssue {
   path: string;
   /** The node's component type. */
   component: string;
-  code: 'unknown-component' | 'invalid-props';
+  code: 'unknown-component' | 'invalid-props' | 'catalog-schema-invalid';
   message: string;
 }
 
@@ -38,7 +38,9 @@ export function validateAgainstCatalog(spec: Spec, catalog: Catalog): CatalogIss
   };
 
   const walk = (node: SpecNode, path: string): void => {
-    if (!(node.type in catalog)) {
+    // `Object.hasOwn`, not `in`: `in` walks the prototype chain, so `constructor`/`__proto__`/etc.
+    // would falsely count as catalog components and then blow up `ajv.compile` on undefined props.
+    if (!Object.hasOwn(catalog, node.type)) {
       issues.push({
         path,
         component: node.type,
@@ -46,17 +48,28 @@ export function validateAgainstCatalog(spec: Spec, catalog: Catalog): CatalogIss
         message: `Unknown component "${node.type}" — not in the design-system catalog`,
       });
     } else {
-      const validate = propsValidator(node.type);
-      if (!validate(node.props)) {
-        for (const err of validate.errors ?? []) {
-          const where = err.instancePath ? `props${err.instancePath}` : 'props';
-          issues.push({
-            path,
-            component: node.type,
-            code: 'invalid-props',
-            message: `${where} ${err.message ?? 'is invalid'}`,
-          });
+      try {
+        const validate = propsValidator(node.type);
+        if (!validate(node.props)) {
+          for (const err of validate.errors ?? []) {
+            const where = err.instancePath ? `props${err.instancePath}` : 'props';
+            issues.push({
+              path,
+              component: node.type,
+              code: 'invalid-props',
+              message: `${where} ${err.message ?? 'is invalid'}`,
+            });
+          }
         }
+      } catch (err) {
+        // A catalog whose props schema won't compile (bad keyword, unresolvable $ref, …) is a
+        // catalog problem, not a 500 — surface it as a structured issue.
+        issues.push({
+          path,
+          component: node.type,
+          code: 'catalog-schema-invalid',
+          message: `Catalog schema for "${node.type}" is not a compilable JSON Schema: ${(err as Error).message}`,
+        });
       }
     }
     node.children.forEach((child, i) => walk(child, `${path}/children/${i}`));
