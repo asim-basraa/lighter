@@ -138,8 +138,18 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
   - #28 (PR #66): feed a version's comments back into `refineSpec` — element-anchored feedback folded
     into the prompt, fenced as untrusted data + size-capped (public input). Closes the review→generate
     loop (#23→#24→#27→#28).
-  - REMAINING: #25 approval state machine, #26 sign-off enforcement, #29 notifications, #30
-    click-through flows.
+  - #25 (PR #67): per-version approval state machine (draft → shared → changes-requested → approved),
+    transitions enforced; deploy advances draft → shared.
+  - #26 (PR #68): sign-off set enforcement — configurable per-screen set (≥1 customer + ≥1 internal);
+    approve gated on all parties signing; ungated when no set configured (#25-compatible).
+  - #29 (PR #69): notifications on comment/approval via an injectable Notifier (WebhookNotifier +
+    NOTIFY_WEBHOOK_URL); safeNotify never breaks the primary action; bounded by a timeout.
+  - #30 (PR #70): click-through flows — per-screen flow links to other screens, resolved to their
+    deployed mocks, rendered as nav on the mock. DS-agnostic (no in-component dispatch; see #23).
+  - **Review surface #21–30 COMPLETE.**
+- [~] **#31–34, #36, #37 — handoff + freshness** — IN PROGRESS. #31 catalog prompt output, #32
+  INTENT.md per screen, #33 handoff bundle (needs #31+#32+#25), #34 share expiry (extends #21),
+  #36 re-ingest on push webhook, #37 stale-spec flagging. (#35 SSO dropped.)
 - [ ] #31–33 handoff bundle · #34, #36, #37 auth & freshness
 - ~~#35 internal SSO~~ — **DROPPED & CLOSED** (user, 2026-07-17): no SSO support needed. The GitHub
   issue when auth is restored. The repoPath-hardening concern that rode along with #35 is preserved
