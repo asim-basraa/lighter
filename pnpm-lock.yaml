@@ -68,6 +68,22 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/spec:
+    dependencies:
+      '@json-render/core':
+        specifier: 0.19.0
+        version: 0.19.0(zod@3.25.76)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   services/api:
     dependencies:
       '@hono/node-server':
