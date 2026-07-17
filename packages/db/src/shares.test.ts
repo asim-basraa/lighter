@@ -17,7 +17,10 @@ describe('shares', () => {
     expect(share.token).toMatch(/^[0-9a-f]{32}$/);
     expect(share.screenId).toBe('checkout');
     expect(share.version).toBe(3);
-    expect(await resolveShare(db, share.token)).toEqual({ screenId: 'checkout', version: 3 });
+    const resolved = await resolveShare(db, share.token);
+    expect(resolved).toMatchObject({ screenId: 'checkout', version: 3 });
+    // The deploy timestamp travels with the resolved share (the banner's date).
+    expect(resolved?.createdAt).toEqual(expect.any(String));
   });
 
   it('is idempotent per (screen, version): re-sharing returns the same stable token', async () => {
@@ -32,7 +35,7 @@ describe('shares', () => {
     const v1 = await createShare(db, 'home', 1);
     const v2 = await createShare(db, 'home', 2);
     expect(v1.token).not.toBe(v2.token);
-    expect(await resolveShare(db, v2.token)).toEqual({ screenId: 'home', version: 2 });
+    expect(await resolveShare(db, v2.token)).toMatchObject({ screenId: 'home', version: 2 });
   });
 
   it('resolves an unknown token to null', async () => {

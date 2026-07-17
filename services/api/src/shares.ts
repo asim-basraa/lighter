@@ -56,6 +56,7 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
     if (!screen || !spec) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
-    return c.json({ screen, version: target.version, spec });
+    // `deployedAt` (when the version was first shared) feeds the deployed mock's version banner.
+    return c.json({ screen, version: target.version, spec, deployedAt: target.createdAt });
   });
 }

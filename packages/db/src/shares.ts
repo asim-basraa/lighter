@@ -9,6 +9,12 @@ export interface ShareTarget {
   version: number;
 }
 
+/** A resolved share plus when it was deployed — what the public renderer needs for its banner. */
+export interface ResolvedShare extends ShareTarget {
+  /** When the version was first deployed (SQLite UTC timestamp, `YYYY-MM-DD HH:MM:SS`). */
+  createdAt: string;
+}
+
 /** A minted share: its token plus the version it addresses. */
 export interface Share extends ShareTarget {
   token: string;
@@ -40,8 +46,8 @@ export async function createShare(db: Db, screenId: string, version: number): Pr
   return { token: row.token, screenId: row.screenId, version: row.version };
 }
 
-/** Resolve a share token to its target version, or null if the token is unknown. */
-export async function resolveShare(db: Db, token: string): Promise<ShareTarget | null> {
+/** Resolve a share token to its target version (with deploy time), or null if the token is unknown. */
+export async function resolveShare(db: Db, token: string): Promise<ResolvedShare | null> {
   const [row] = await db.select().from(shares).where(eq(shares.token, token)).limit(1);
-  return row ? { screenId: row.screenId, version: row.version } : null;
+  return row ? { screenId: row.screenId, version: row.version, createdAt: row.createdAt } : null;
 }

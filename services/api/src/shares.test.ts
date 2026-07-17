@@ -81,14 +81,12 @@ describe('tokenized share URL (#21)', () => {
     const { token } = (await deployed.json()) as { token: string };
     expect(token).toMatch(/^[0-9a-f]{32}$/);
 
-    // The public read endpoint — no account — returns the screen, version, and spec to render.
+    // The public read endpoint — no account — returns the screen, version, spec, and deploy time.
     const res = await app.request(`/share/${token}`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      screen: { id: 'checkout', name: 'Checkout' },
-      version: 1,
-      spec,
-    });
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ screen: { id: 'checkout', name: 'Checkout' }, version: 1, spec });
+    expect(body.deployedAt).toEqual(expect.any(String)); // powers the version banner
   });
 
   it('returns the same stable token when a version is deployed twice', async () => {
