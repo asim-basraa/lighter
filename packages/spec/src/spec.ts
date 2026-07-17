@@ -21,6 +21,11 @@ export interface SpecNode {
 
 export interface Spec {
   root: SpecNode;
+  /**
+   * Optional mock data attached to the spec, so a customer-facing screen can render realistically.
+   * Travels with the spec (and thus with the version). Serializes to json-render's top-level `state`.
+   */
+  data?: Record<string, unknown>;
 }
 
 /** Input shape a spec node may be parsed from — `children` may be omitted for a leaf. */
@@ -46,6 +51,7 @@ export const SpecNodeSchema: z.ZodType<SpecNode, z.ZodTypeDef, SpecNodeInput> = 
 /** Zod schema for a whole spec. The parse boundary for stored/edited spec JSON. */
 export const SpecSchema = z.object({
   root: SpecNodeSchema,
+  data: z.record(z.unknown()).optional(),
 });
 
 /** Collect every distinct component `type` referenced anywhere in a spec, in first-seen order. */
