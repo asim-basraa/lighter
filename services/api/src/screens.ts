@@ -1,6 +1,12 @@
 import type { Hono } from 'hono';
 import { ZodError } from 'zod';
-import { SpecSchema, validateAgainstCatalog, type Catalog, type Spec } from '@lighter/spec';
+import {
+  SpecSchema,
+  validateAgainstCatalog,
+  componentTypesOf,
+  type Catalog,
+  type Spec,
+} from '@lighter/spec';
 import {
   SpecStore,
   ScreenExistsError,
@@ -45,6 +51,25 @@ export function registerScreenRoutes(
 
   // List all screens.
   app.get('/screens', async (c) => c.json(await store.listScreens()));
+
+  // Derived usage records — one per screen's LATEST version — for the dashboard's blast-radius view:
+  // { screen (name), version (`v{n}`), components (referenced types) }. Screens with no version are
+  // omitted. This is the current blast radius (what today's designs use), not full history.
+  app.get('/specs', async (c) => {
+    const records: { screen: string; version: string; components: string[] }[] = [];
+    for (const screen of await store.listScreens()) {
+      const latest = (await store.listVersions(screen.id)).at(-1);
+      if (latest === undefined) continue;
+      const spec = await store.getVersion(screen.id, latest);
+      if (!spec) continue;
+      records.push({
+        screen: screen.name,
+        version: `v${latest}`,
+        components: componentTypesOf(spec),
+      });
+    }
+    return c.json(records);
+  });
 
   // A screen's metadata plus its version numbers.
   app.get('/screens/:id', async (c) => {

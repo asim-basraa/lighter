@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -264,5 +264,56 @@ describe('duplicate a screen (#16)', () => {
     await post(app, '/screens', { name: 'Taken' });
     expect((await post(app, '/screens/checkout/duplicate', { name: 'Taken' })).status).toBe(409);
     expect((await post(app, '/screens/checkout/duplicate', {})).status).toBe(400);
+  });
+});
+
+describe('GET /specs — derived usage records', () => {
+  const post = (app: Awaited<ReturnType<typeof testApp>>, path: string, body: unknown) =>
+    app.request(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('is empty when there are no screens with versions', async () => {
+    const app = await testApp();
+    expect(await (await app.request('/specs')).json()).toEqual([]);
+    // A screen with no version is omitted.
+    await post(app, '/screens', { name: 'Empty' });
+    expect(await (await app.request('/specs')).json()).toEqual([]);
+  });
+
+  it('omits (does not 500) a screen whose latest version file is corrupt', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    await post(app, '/screens/checkout/versions', { spec });
+    writeFileSync(join(root, 'checkout', '1.json'), 'corrupt');
+    const res = await app.request('/specs');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("returns one record per screen's latest version with its component types", async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    await post(app, '/screens/checkout/versions', { spec }); // v1
+    await post(app, '/screens/checkout/versions', {
+      spec: {
+        root: {
+          type: 'PageShell',
+          props: { title: 'Checkout' },
+          children: [{ type: 'Button', props: { label: 'Pay', variant: 'primary' }, children: [] }],
+        },
+      },
+    }); // v2 uses PageShell + Button
+
+    const records = (await (await app.request('/specs')).json()) as {
+      screen: string;
+      version: string;
+      components: string[];
+    }[];
+    expect(records).toEqual([
+      { screen: 'Checkout', version: 'v2', components: ['PageShell', 'Button'] },
+    ]);
   });
 });
