@@ -11,6 +11,7 @@ import {
 } from '@lighter/generation';
 import type { SpecStore } from './specStore.js';
 import { registerScreenRoutes } from './screens.js';
+import { registerShareRoutes } from './shares.js';
 
 export interface AppDeps {
   db: Db;
@@ -220,6 +221,7 @@ export function createApp(deps: AppDeps): Hono {
       return Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }]));
     };
     registerScreenRoutes(app, deps.specStore, loadCatalog);
+    registerShareRoutes(app, deps.db, deps.specStore);
   }
 
   return app;

@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { tokenRootCss } from '../lib/tokenCss.js';
-import { Nav } from '../components/Nav.js';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Lighter — inventory dashboard',
+  title: 'Lighter',
   description: 'Live inventory of the design system: components, tokens, and health.',
 };
 
+/**
+ * The root layout: just the document shell and the design-system token custom properties. Navigation
+ * chrome lives in the `(dashboard)` route group's layout, not here, so public surfaces (the `/share`
+ * review pages) render on this bare shell without internal navigation.
+ */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
@@ -17,10 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             source. Derived from the shared tokens object (see lib/tokenCss), not a build artifact. */}
         <style dangerouslySetInnerHTML={{ __html: tokenRootCss() }} />
       </head>
-      <body>
-        <Nav />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
