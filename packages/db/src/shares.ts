@@ -53,8 +53,10 @@ export async function resolveShare(db: Db, token: string): Promise<ResolvedShare
 }
 
 /**
- * The share token for a screen's most-recently deployed version, or null if none is deployed. Used to
- * resolve a flow link (#30) to the current deployed mock of its target screen.
+ * The share token for a screen's highest-versioned deployed version, or null if none is deployed —
+ * so a flow link (#30) lands on the newest available mock of its target screen. Only rows in `shares`
+ * (i.e. actually-deployed versions) are considered, so this never returns a token for an undeployed
+ * version.
  */
 export async function latestShareForScreen(db: Db, screenId: string): Promise<string | null> {
   const [row] = await db

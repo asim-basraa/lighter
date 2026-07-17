@@ -100,11 +100,30 @@ describe('click-through flows (#30)', () => {
     expect((await setFlow(app, 'checkout', [{ label: 'Go', target: 'ghost' }])).status).toBe(400);
   });
 
-  it('400s a malformed link', async () => {
+  it('400s a malformed link (null, empty, or whitespace-only fields)', async () => {
     const app = await testApp();
     await makeScreen(app, 'Checkout');
+    await makeScreen(app, 'Confirm');
     expect((await setFlow(app, 'checkout', [null])).status).toBe(400);
-    expect((await setFlow(app, 'checkout', [{ label: '', target: 'x' }])).status).toBe(400);
+    expect((await setFlow(app, 'checkout', [{ label: '', target: 'confirm' }])).status).toBe(400);
+    expect((await setFlow(app, 'checkout', [{ label: '   ', target: 'confirm' }])).status).toBe(
+      400,
+    );
+    expect((await setFlow(app, 'checkout', [{ label: 'Go', target: '   ' }])).status).toBe(400);
+  });
+
+  it('400s a flow with too many links', async () => {
+    const app = await testApp();
+    await makeScreen(app, 'Checkout');
+    await makeScreen(app, 'Confirm');
+    const many = Array.from({ length: 21 }, () => ({ label: 'Go', target: 'confirm' }));
+    expect((await setFlow(app, 'checkout', many)).status).toBe(400);
+  });
+
+  it('404s flow read/write for a non-existent source screen', async () => {
+    const app = await testApp();
+    expect((await app.request('/screens/ghost/flow')).status).toBe(404);
+    expect((await setFlow(app, 'ghost', [])).status).toBe(404);
   });
 
   it('resolves the flow to the target’s deployed mock in the share response', async () => {

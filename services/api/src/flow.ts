@@ -10,6 +10,9 @@ import type { SpecStore } from './specStore.js';
  *   GET /screens/:id/flow   — the configured flow links
  *   PUT /screens/:id/flow   — configure them (each target must be an existing screen)
  */
+/** Bound the flow size: each link is a DB query on the public share read, so keep it small. */
+const MAX_FLOW_LINKS = 20;
+
 export function registerFlowRoutes(app: Hono, db: Db, store: SpecStore): void {
   app.get('/screens/:id/flow', async (c) => {
     const id = c.req.param('id');
@@ -28,6 +31,12 @@ export function registerFlowRoutes(app: Hono, db: Db, store: SpecStore): void {
     const links = body?.links;
     if (!Array.isArray(links)) {
       return c.json({ status: 'error', message: 'links (array) is required' }, 400);
+    }
+    if (links.length > MAX_FLOW_LINKS) {
+      return c.json(
+        { status: 'error', message: `a flow may have at most ${MAX_FLOW_LINKS} links` },
+        400,
+      );
     }
     const clean: FlowLinkInput[] = [];
     for (const raw of links) {
