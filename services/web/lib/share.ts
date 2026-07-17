@@ -42,9 +42,9 @@ export async function loadShare(
     }
     return { share: (await res.json()) as SharedVersion, error: null };
   } catch (err) {
-    return {
-      share: null,
-      error: err instanceof Error ? err.message : 'Failed to load shared mock',
-    };
+    // This surface is public, so the viewer-facing message stays generic; the technical detail is
+    // logged server-side (never sent to an unauthenticated external viewer).
+    console.error('Failed to load shared mock:', err);
+    return { share: null, error: 'Something went wrong loading this shared mock.' };
   }
 }

@@ -12,6 +12,14 @@ import type { SpecStore } from './specStore.js';
  * The share token is the only credential to view a deployed mock — no account, no per-version build.
  * The GET is the "static renderer fetches spec by ID" seam: the web renderer fetches this and renders
  * the returned spec through the design system.
+ *
+ * SECURITY: the intended public surface is the web `/share/[token]` page, which proxies GET only. The
+ * mint route (POST …/share) is unauthenticated and screen ids are guessable human slugs, so anyone
+ * who can reach THIS API directly can enumerate versions and mint a token for any of them —
+ * short-circuiting the token's unguessability. This is acceptable only because the API is not exposed
+ * to untrusted callers (the same posture as `/ingest`; see app.ts). If the API is ever exposed,
+ * minting must be gated (auth, or restrict token issuance to an internal caller) under the same
+ * hardening ticket as the repoPath note.
  */
 export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
   // Deploy a specific version to a share URL. Idempotent per version (a version has one stable token).

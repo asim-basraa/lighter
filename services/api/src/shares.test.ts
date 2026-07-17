@@ -118,6 +118,16 @@ describe('tokenized share URL (#21)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('404s a token whose version has since gone (never dangles)', async () => {
+    const app = await testApp();
+    await seedScreen(app);
+    const { token } = (await (await share(app, 'checkout', 1)).json()) as { token: string };
+    // Remove the underlying version file out from under the (still-valid) token.
+    rmSync(join(root, 'checkout', '1.json'));
+    const res = await app.request(`/share/${token}`);
+    expect(res.status).toBe(404);
+  });
+
   it('404s the share routes when no spec store is configured', async () => {
     const noStore = await testApp({ withStore: false });
     expect(

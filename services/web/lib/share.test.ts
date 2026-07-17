@@ -33,9 +33,11 @@ describe('loadShare', () => {
     expect(loaded.error).toMatch(/not found/i);
   });
 
-  it('folds any other failure into an error string', async () => {
+  it('folds any other failure into a generic message that does not leak internals', async () => {
     const loaded = await loadShare('tok', () => new Response('', { status: 500 }));
     expect(loaded.share).toBeNull();
-    expect(loaded.error).toMatch(/500/);
+    expect(loaded.error).toMatch(/something went wrong/i);
+    // The upstream status/URL must not reach an unauthenticated viewer.
+    expect(loaded.error).not.toMatch(/500/);
   });
 });
