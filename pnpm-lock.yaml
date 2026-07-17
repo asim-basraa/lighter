@@ -139,6 +139,9 @@ importers:
 
   services/web:
     dependencies:
+      '@lighter/spec':
+        specifier: workspace:*
+        version: link:../../packages/spec
       lighter-example:
         specifier: file:../../../lighter-example
         version: file:../lighter-example

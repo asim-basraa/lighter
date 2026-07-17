@@ -115,3 +115,47 @@ describe('POST /generate', () => {
     expect(body.message).not.toMatch(/secret|401/);
   });
 });
+
+describe('POST /generate/variations (#18)', () => {
+  const postVariations = (app: Awaited<ReturnType<typeof testApp>>, body: unknown) =>
+    app.request('/generate/variations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('returns N independent, catalog-valid variations', async () => {
+    const app = await testApp({ generator: fakeGenerator([validSpecJson]) });
+    const res = await postVariations(app, { intent: 'A home screen', count: 3 });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { variations: { spec: { root: { type: string } } }[] };
+    expect(body.variations).toHaveLength(3);
+    expect(body.variations.every((v) => v.spec.root.type === 'PageShell')).toBe(true);
+  });
+
+  it('defaults to 3 and clamps count to 1–5', async () => {
+    const app = await testApp({ generator: fakeGenerator([validSpecJson]) });
+    const dflt = await (await postVariations(app, { intent: 'x' })).json();
+    expect((dflt as { variations: unknown[] }).variations).toHaveLength(3);
+    const many = await (await postVariations(app, { intent: 'x', count: 99 })).json();
+    expect((many as { variations: unknown[] }).variations).toHaveLength(5);
+    const zero = await (await postVariations(app, { intent: 'x', count: 0 })).json();
+    expect((zero as { variations: unknown[] }).variations).toHaveLength(1);
+  });
+
+  it('400/422/501 mirror /generate (no intent, no catalog, not configured)', async () => {
+    expect(
+      (await postVariations(await testApp({ generator: fakeGenerator([validSpecJson]) }), {}))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await postVariations(
+          await testApp({ generator: fakeGenerator([validSpecJson]), ingest: false }),
+          { intent: 'x' },
+        )
+      ).status,
+    ).toBe(422);
+    expect((await postVariations(await testApp(), { intent: 'x' })).status).toBe(501);
+  });
+});
