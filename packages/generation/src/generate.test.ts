@@ -296,8 +296,15 @@ describe('buildSystemPrompt', () => {
 });
 
 describe('catalogPrompt (#31)', () => {
-  it('is deterministic — the same catalog yields byte-identical output', () => {
-    expect(catalogPrompt(catalog)).toBe(catalogPrompt(catalog));
+  it('is deterministic — two independently-built, deeply-equal catalogs yield identical output', () => {
+    const a: CatalogComponent[] = [{ name: 'Button', description: 'A button', props: { x: 1 } }];
+    const b: CatalogComponent[] = [{ name: 'Button', description: 'A button', props: { x: 1 } }];
+    expect(catalogPrompt(a)).toBe(catalogPrompt(b));
+  });
+
+  it('renders an empty catalog as an empty string (no crash)', () => {
+    expect(catalogPrompt([])).toBe('');
+    expect(buildSystemPrompt([], 'PageShell')).toMatch(/Available components:/);
   });
 
   it('includes each component description, its props JSON Schema, and an actions line', () => {
