@@ -101,4 +101,17 @@ describe('POST /generate', () => {
     const app = await testApp(); // no generator
     expect((await post(app, 'x')).status).toBe(501);
   });
+
+  it('502s (without leaking the error) when the LLM call throws', async () => {
+    const throwing: LlmClient = {
+      async complete() {
+        throw new Error('secret upstream 401 detail');
+      },
+    };
+    const app = await testApp({ generator: throwing });
+    const res = await post(app, 'x');
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { message: string };
+    expect(body.message).not.toMatch(/secret|401/);
+  });
 });

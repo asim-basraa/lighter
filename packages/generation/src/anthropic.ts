@@ -4,9 +4,8 @@ import type { LlmClient } from './llm.js';
 /**
  * The production `LlmClient`, backed by the Anthropic API. This is the ONLY module that calls the
  * model, so a paid request happens only when this is wired in (never in tests, which inject a fake).
- * Uses the latest Opus with adaptive thinking; the spec format is enforced by generation's validate-
- * or-retry loop, not by a response schema (the internal spec is recursive, which structured outputs
- * can't constrain).
+ * Uses the latest Opus; the spec format is enforced by generation's validate-or-retry loop, not by a
+ * response schema (the internal spec is recursive, which structured outputs can't constrain).
  */
 export class AnthropicLlmClient implements LlmClient {
   private readonly client: Anthropic;

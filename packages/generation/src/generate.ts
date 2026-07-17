@@ -33,19 +33,61 @@ export class GenerationError extends Error {
   }
 }
 
-/** Pull the JSON object out of a model response that may include fences or stray prose. */
+/** The balanced `{…}` substring starting at `start`, respecting strings/escapes, or null. */
+function balancedObjectAt(s: string, start: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Pull the JSON object out of a model response that may include markdown fences or stray prose. In
+ * order: parse the whole string; else the contents of a ``` fence; else the first BALANCED `{…}` that
+ * parses — trying each `{` so a brace in prose (e.g. "{placeholder}") doesn't swallow the real spec.
+ */
 function extractJson(raw: string): unknown {
   const trimmed = raw.trim();
   try {
     return JSON.parse(trimmed);
   } catch {
-    const start = trimmed.indexOf('{');
-    const end = trimmed.lastIndexOf('}');
-    if (start === -1 || end <= start) {
-      throw new Error('no JSON object found in the response');
-    }
-    return JSON.parse(trimmed.slice(start, end + 1));
+    /* not bare JSON — try the strategies below */
   }
+
+  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+  if (fence?.[1]) {
+    try {
+      return JSON.parse(fence[1].trim());
+    } catch {
+      /* fenced content wasn't JSON — fall through to the brace scan */
+    }
+  }
+
+  for (let start = trimmed.indexOf('{'); start !== -1; start = trimmed.indexOf('{', start + 1)) {
+    const candidate = balancedObjectAt(trimmed, start);
+    if (candidate === null) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      /* this `{` didn't start valid JSON — try the next one */
+    }
+  }
+  throw new Error('no JSON object found in the response');
 }
 
 /**

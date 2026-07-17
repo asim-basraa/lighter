@@ -66,6 +66,14 @@ describe('generateSpec', () => {
     expect(spec.root.props.title).toBe('Home');
   });
 
+  it('extracts the spec even when prose around it contains braces', async () => {
+    const withBraces =
+      'The title prop uses {placeholder} syntax. Here it is:\n\n' + validSpecJson + '\n\nDone :}';
+    const client = fakeClient([withBraces]);
+    const { spec } = await generateSpec({ intent: 'x', catalog, client });
+    expect(spec.root.props.title).toBe('Home');
+  });
+
   it('retries when the model outputs an unknown component, feeding the error back', async () => {
     const bad = JSON.stringify({ root: { type: 'Ghost', props: {}, children: [] } });
     const client = fakeClient([bad, validSpecJson]);

@@ -110,7 +110,10 @@ export function createApp(deps: AppDeps): Hono {
       if (err instanceof GenerationError) {
         return c.json({ status: 'error', message: err.message, issues: err.lastIssues }, 422);
       }
-      throw err;
+      // An unexpected failure from the LLM call (auth, network, rate limit) — return a generic 502
+      // rather than leaking the upstream error detail to the caller.
+      console.error('spec generation failed:', err);
+      return c.json({ status: 'error', message: 'spec generation failed' }, 502);
     }
   });
 
