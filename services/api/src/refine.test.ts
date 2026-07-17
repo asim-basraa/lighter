@@ -192,3 +192,38 @@ describe('POST /screens/:id/refine (#19)', () => {
     expect((await refine(noGen, 'home', 'x')).status).toBe(501);
   });
 });
+
+describe('refine feeds review comments back into generation (#28)', () => {
+  it('includes the version’s comments in the refinement prompt, anchored to the element', async () => {
+    const gen = recordingGenerator(refinedJson);
+    const app = await testApp({ generator: gen });
+    await seedScreen(app); // home v1 = PageShell(el-0) > Text(el-1)
+
+    // Deploy v1 and leave a review comment on the Text element.
+    const token = (
+      (await (await app.request('/screens/home/versions/1/share', { method: 'POST' })).json()) as {
+        token: string;
+      }
+    ).token;
+    await app.request(`/share/${token}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ elementId: 'el-1', body: 'Please reword this copy' }),
+      headers: json,
+    });
+
+    const res = await refine(app, 'home', 'Address the review');
+    expect(res.status).toBe(201);
+    // The refinement prompt carries the reviewer's comment, anchored to its element id.
+    expect(gen.prompts[0]).toContain('Please reword this copy');
+    expect(gen.prompts[0]).toContain('el-1');
+    expect(gen.prompts[0]).toMatch(/reviewers left/i);
+  });
+
+  it('omits the feedback block when the version has no comments', async () => {
+    const gen = recordingGenerator(refinedJson);
+    const app = await testApp({ generator: gen });
+    await seedScreen(app);
+    await refine(app, 'home', 'Just tweak it');
+    expect(gen.prompts[0]).not.toMatch(/reviewers left/i);
+  });
+});
