@@ -1,0 +1,29 @@
+{
+  "name": "@lighter/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 4000",
+    "build": "next build",
+    "start": "next start -p 4000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lighter-example": "file:../../../lighter-example",
+    "next": "^14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@lighter/api": "workspace:*",
+    "@lighter/db": "workspace:*",
+    "@lighter/ingestion": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.7.2"
+  }
+}

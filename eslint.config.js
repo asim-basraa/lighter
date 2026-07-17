@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'coverage/**', '**/*.sql'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', 'coverage/**', '**/*.sql'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
