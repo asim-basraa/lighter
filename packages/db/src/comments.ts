@@ -46,3 +46,15 @@ export async function listComments(db: Db, screenId: string, version: number): P
     .where(and(eq(comments.screenId, screenId), eq(comments.version, version)))
     .orderBy(asc(comments.id));
 }
+
+/**
+ * Every comment on a screen, across all its versions, ordered by version then creation order. The
+ * PM-facing aggregation (#27) groups these by version + element so nothing is lost across iterations.
+ */
+export async function listCommentsForScreen(db: Db, screenId: string): Promise<Comment[]> {
+  return db
+    .select()
+    .from(comments)
+    .where(eq(comments.screenId, screenId))
+    .orderBy(asc(comments.version), asc(comments.id));
+}

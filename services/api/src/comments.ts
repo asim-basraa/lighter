@@ -1,7 +1,15 @@
 import type { Hono } from 'hono';
 import { toJsonRender } from '@lighter/spec';
-import { createComment, listComments, getComment, resolveShare, type Db } from '@lighter/db';
+import {
+  createComment,
+  listComments,
+  listCommentsForScreen,
+  getComment,
+  resolveShare,
+  type Db,
+} from '@lighter/db';
 import type { SpecStore } from './specStore.js';
+import { aggregateComments } from './commentAggregation.js';
 
 /**
  * Mount the review-comment routes, reached through a share token so a reviewer needs no account.
@@ -116,5 +124,17 @@ export function registerCommentRoutes(app: Hono, db: Db, store: SpecStore): void
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
     return c.json(await listComments(db, target.screenId, target.version));
+  });
+
+  // PM-facing aggregation (#27): a screen's comments across every version, grouped by version then
+  // element, with thread contents — so feedback is not lost across iterations. Internal (by screen id,
+  // not a share token). Also the context #28 feeds back into generation.
+  app.get('/screens/:id/comments', async (c) => {
+    const id = c.req.param('id');
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    const rows = await listCommentsForScreen(db, id);
+    return c.json({ screen: id, versions: aggregateComments(rows) });
   });
 }

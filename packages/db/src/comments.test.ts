@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createClient } from './client.js';
 import { runMigrations, migrationsDir } from './migrate.js';
-import { createComment, listComments, getComment } from './comments.js';
+import { createComment, listComments, listCommentsForScreen, getComment } from './comments.js';
 
 function freshDb() {
   const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
@@ -92,6 +92,17 @@ describe('comments', () => {
       ['root', null],
       ['reply', root.id],
     ]);
+  });
+
+  it('lists every comment on a screen across versions, by version then creation order', async () => {
+    const db = freshDb();
+    await createComment(db, { screenId: 'home', version: 2, elementId: 'el-0', body: 'v2-a' });
+    await createComment(db, { screenId: 'home', version: 1, elementId: 'el-0', body: 'v1-a' });
+    await createComment(db, { screenId: 'home', version: 1, elementId: 'el-1', body: 'v1-b' });
+    await createComment(db, { screenId: 'login', version: 1, elementId: 'el-0', body: 'other' });
+
+    const all = await listCommentsForScreen(db, 'home');
+    expect(all.map((c) => c.body)).toEqual(['v1-a', 'v1-b', 'v2-a']);
   });
 
   it('fetches a single comment by id (to validate a reply parent)', async () => {
