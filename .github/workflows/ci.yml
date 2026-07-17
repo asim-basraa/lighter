@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # services/web depends on the sibling design-system repo via `file:../../../lighter-example`,
+      # so both repos must sit side by side in the workspace for `pnpm install` to resolve it.
+      - name: Checkout lighter
+        uses: actions/checkout@v4
+        with:
+          path: lighter
+      - name: Checkout lighter-example (sibling file dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: asim-basraa/lighter-example
+          path: lighter-example
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: lighter/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: lighter
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: lighter
+        run: pnpm lint
+      - name: Typecheck
+        working-directory: lighter
+        run: pnpm typecheck
+      - name: Test
+        working-directory: lighter
+        run: pnpm test
+      - name: Build web (production bundle)
+        working-directory: lighter
+        run: pnpm --filter @lighter/web build
