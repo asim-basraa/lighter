@@ -5,3 +5,4 @@ export {
   isValidJsonRender,
   type JsonRenderSpec,
 } from './json-render.js';
+export { validateAgainstCatalog, type Catalog, type CatalogIssue } from './catalog-validate.js';

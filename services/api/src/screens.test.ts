@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient, runMigrations } from '@lighter/db';
 import type { Spec } from '@lighter/spec';
 import { createApp } from './app.js';
@@ -15,15 +16,36 @@ const spec: Spec = {
   },
 };
 
+// The committed design-system fixture; ingested so specs have a catalog to validate against.
+const fixtureRepo = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'packages',
+  'ingestion',
+  'fixtures',
+  'example-ds',
+);
+
 let root: string;
 
-async function testApp() {
+/** An app with an in-memory DB, a temp git-backed spec store, and the fixture catalog ingested. */
+async function testApp({ ingest = true }: { ingest?: boolean } = {}) {
   const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
   runMigrations(sqlite);
   root = mkdtempSync(join(tmpdir(), 'lighter-specs-api-'));
   const specStore = new SpecStore(root);
   await specStore.init();
-  return createApp({ db, specStore });
+  const app = createApp({ db, specStore });
+  if (ingest) {
+    await app.request('/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ repoPath: fixtureRepo, artifactDir: 'artifacts' }),
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  return app;
 }
 
 afterEach(() => {
@@ -133,5 +155,53 @@ describe('screen + spec-version API', () => {
       headers: { 'content-type': 'application/json' },
     });
     expect(orphanVersion.status).toBe(404);
+  });
+});
+
+describe('spec catalog validation on save (#15)', () => {
+  const post = (app: Awaited<ReturnType<typeof testApp>>, path: string, body: unknown) =>
+    app.request(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('saves a catalog-valid edit as a new version', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    const res = await post(app, '/screens/checkout/versions', { spec });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ version: 1 });
+  });
+
+  it('rejects an unknown component with structured issues and saves nothing', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    const badSpec: Spec = { root: { type: 'Ghost', props: {}, children: [] } };
+    const res = await post(app, '/screens/checkout/versions', { spec: badSpec });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { issues: { code: string; component: string }[] };
+    expect(body.issues[0]).toMatchObject({ code: 'unknown-component', component: 'Ghost' });
+    // Nothing was persisted.
+    expect(await (await app.request('/screens/checkout')).json()).toMatchObject({ versions: [] });
+  });
+
+  it('rejects props that violate the catalog schema', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    const badProps: Spec = {
+      root: { type: 'Text', props: { content: 'x', size: 'ENORMOUS' }, children: [] },
+    };
+    const res = await post(app, '/screens/checkout/versions', { spec: badProps });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { issues: { code: string }[] };
+    expect(body.issues.some((i) => i.code === 'invalid-props')).toBe(true);
+  });
+
+  it('422s a save when no catalog has been ingested', async () => {
+    const app = await testApp({ ingest: false });
+    await post(app, '/screens', { name: 'Checkout' });
+    const res = await post(app, '/screens/checkout/versions', { spec });
+    expect(res.status).toBe(422);
   });
 });
