@@ -215,6 +215,32 @@ describe('refineSpec', () => {
     });
     expect(attempts).toBe(2);
   });
+
+  it('folds reviewer feedback into the prompt, anchored to element ids (#28)', async () => {
+    const client = fakeClient([refinedJson]);
+    await refineSpec({
+      currentSpec,
+      instruction: 'Revise per the review',
+      catalog,
+      client,
+      feedback: [
+        { elementId: 'el-1', elementType: 'Text', comments: ['Reword this', 'Too small'] },
+        { elementId: 'el-0', elementType: 'PageShell', comments: [] }, // no comments → skipped
+      ],
+    });
+    const prompt = client.calls[0]!.user;
+    expect(prompt).toContain('el-1 (Text)');
+    expect(prompt).toContain('Reword this');
+    expect(prompt).toContain('Too small');
+    // An element with no comments contributes nothing.
+    expect(prompt).not.toContain('el-0 (PageShell)');
+  });
+
+  it('leaves the prompt unchanged when no feedback is supplied', async () => {
+    const client = fakeClient([refinedJson]);
+    await refineSpec({ currentSpec, instruction: 'x', catalog, client, feedback: [] });
+    expect(client.calls[0]!.user).not.toMatch(/Reviewers left/i);
+  });
 });
 
 describe('buildSystemPrompt', () => {

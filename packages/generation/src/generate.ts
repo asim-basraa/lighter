@@ -171,22 +171,63 @@ export async function generateVariations(
   return results;
 }
 
+/** Reviewer feedback anchored to one spec element — the comments left on it, in order. */
+export interface ElementFeedback {
+  elementId: string;
+  /** The element's component type, for a legible prompt (e.g. "Button"). Optional. */
+  elementType?: string;
+  /** Comment bodies on this element (root + replies), in creation order. */
+  comments: string[];
+}
+
 export interface RefineOptions extends Omit<GenerateOptions, 'intent'> {
   /** The spec being refined — included as context so the model edits it rather than starting over. */
   currentSpec: Spec;
   /** The follow-up instruction describing the change to apply. */
   instruction: string;
+  /**
+   * Reviewer feedback collected on the current version, attached mechanically to element ids (#28).
+   * Included verbatim in the prompt so the refinement addresses the comments, not just the
+   * instruction. Empty/omitted → the prompt is unchanged from a plain refine.
+   */
+  feedback?: ElementFeedback[];
+}
+
+/** Render reviewer feedback as a mechanical, element-anchored block for the prompt. */
+function renderFeedback(feedback: ElementFeedback[]): string {
+  const lines = feedback
+    .filter((f) => f.comments.length > 0)
+    .map((f) => {
+      const label = f.elementType ? `${f.elementId} (${f.elementType})` : f.elementId;
+      const comments = f.comments.map((c) => `    - "${c}"`).join('\n');
+      return `  ${label}:\n${comments}`;
+    });
+  return lines.join('\n');
 }
 
 /**
  * Refine an existing spec with a follow-up instruction. The current spec is included as context and
  * the model is asked to return the full updated spec, which then goes through the same validate-or-
  * retry loop — so the refined result is a fresh, independently catalog-valid spec (a new version).
+ *
+ * When `feedback` is supplied (#28), the reviewers' comments are folded into the prompt, anchored to
+ * the element ids they were left on, so the refinement addresses real review feedback mechanically
+ * rather than the model having to infer it.
  */
 export async function refineSpec(opts: RefineOptions): Promise<GenerateResult> {
+  const feedbackBlock =
+    opts.feedback && renderFeedback(opts.feedback).length > 0
+      ? [
+          '',
+          'Reviewers left the following comments on specific elements of the current spec.',
+          'Address them in the update, using the element ids to locate each one:',
+          renderFeedback(opts.feedback),
+        ].join('\n')
+      : '';
   const intent = [
     'Here is the current spec (JSON):',
     JSON.stringify(opts.currentSpec),
+    feedbackBlock,
     '',
     'Apply the following change and return the COMPLETE updated spec (not a diff):',
     opts.instruction,

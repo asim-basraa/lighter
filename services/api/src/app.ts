@@ -1,6 +1,13 @@
 import { Hono, type Context } from 'hono';
-import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
+import {
+  listHealthChecks,
+  saveInventory,
+  latestInventory,
+  listComments,
+  type Db,
+} from '@lighter/db';
 import { ingest, type InventoryModel } from '@lighter/ingestion';
+import { toJsonRender, type Spec } from '@lighter/spec';
 import {
   generateSpec,
   generateVariations,
@@ -8,6 +15,7 @@ import {
   GenerationError,
   type LlmClient,
   type CatalogComponent,
+  type ElementFeedback,
 } from '@lighter/generation';
 import type { SpecStore } from './specStore.js';
 import { registerScreenRoutes } from './screens.js';
@@ -20,6 +28,39 @@ export interface AppDeps {
   specStore?: SpecStore;
   /** LLM client for spec generation. When present, POST /generate is available. */
   specGenerator?: LlmClient;
+}
+
+/**
+ * Gather a version's review comments as element-anchored feedback for refinement (#28). Groups every
+ * comment (root + reply) by the element id it was left on, in creation order, and labels each element
+ * with its component type. Returns undefined when there are no comments, so a plain refine is
+ * unaffected. A spec that can't serialize just loses the type labels — the comments still flow.
+ */
+async function collectFeedback(
+  db: Db,
+  screenId: string,
+  version: number,
+  spec: Spec,
+): Promise<ElementFeedback[] | undefined> {
+  const comments = await listComments(db, screenId, version);
+  if (comments.length === 0) return undefined;
+  const typeOf = new Map<string, string>();
+  try {
+    for (const [id, el] of Object.entries(toJsonRender(spec).elements)) typeOf.set(id, el.type);
+  } catch {
+    // Unserializable spec → no type labels; feedback still flows by element id.
+  }
+  const byElement = new Map<string, string[]>();
+  for (const c of comments) {
+    const bucket = byElement.get(c.elementId);
+    if (bucket) bucket.push(c.body);
+    else byElement.set(c.elementId, [c.body]);
+  }
+  return [...byElement].map(([elementId, bodies]) => ({
+    elementId,
+    elementType: typeOf.get(elementId),
+    comments: bodies,
+  }));
 }
 
 /**
@@ -202,9 +243,18 @@ export function createApp(deps: AppDeps): Hono {
       description: comp.description,
       props: comp.props,
     }));
+    // Feed the current version's review comments back into the refinement (#28): gather them,
+    // grouped by the element id they were left on, so the model addresses real feedback mechanically.
+    const feedback = await collectFeedback(deps.db, id, latest!, currentSpec);
     let refined;
     try {
-      refined = await refineSpec({ currentSpec, instruction, catalog, client: generator });
+      refined = await refineSpec({
+        currentSpec,
+        instruction,
+        catalog,
+        client: generator,
+        feedback,
+      });
     } catch (err) {
       return onGenerationError(c, err);
     }

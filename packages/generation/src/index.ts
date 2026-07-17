@@ -8,6 +8,7 @@ export {
   type GenerateOptions,
   type GenerateVariationsOptions,
   type RefineOptions,
+  type ElementFeedback,
   type GenerateResult,
 } from './generate.js';
 export { AnthropicLlmClient } from './anthropic.js';
