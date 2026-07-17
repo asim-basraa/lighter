@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { componentTypesOf } from '@lighter/spec';
-import { generateSpec, generateVariations, GenerationError } from './generate.js';
+import { generateSpec, generateVariations, refineSpec, GenerationError } from './generate.js';
+import type { Spec } from '@lighter/spec';
 import { buildSystemPrompt, type CatalogComponent } from './prompt.js';
 import type { LlmClient } from './llm.js';
 
@@ -166,6 +167,53 @@ describe('generateVariations', () => {
     await expect(
       generateVariations({ intent: 'x', catalog, client, count: 2, maxAttempts: 1 }),
     ).rejects.toBeInstanceOf(GenerationError);
+  });
+});
+
+describe('refineSpec', () => {
+  const currentSpec: Spec = {
+    root: {
+      type: 'PageShell',
+      props: { title: 'Home' },
+      children: [{ type: 'Text', props: { content: 'Old copy', size: 'md' }, children: [] }],
+    },
+  };
+  const refinedJson = JSON.stringify({
+    root: {
+      type: 'PageShell',
+      props: { title: 'Home' },
+      children: [{ type: 'Text', props: { content: 'New copy', size: 'lg' }, children: [] }],
+    },
+  });
+
+  it('includes the current spec as context and returns a catalog-valid refinement', async () => {
+    const client = fakeClient([refinedJson]);
+    const { spec } = await refineSpec({
+      currentSpec,
+      instruction: 'Make the text larger and reword it',
+      catalog,
+      client,
+    });
+    // The prior spec + the instruction were both in the prompt.
+    expect(client.calls[0]!.user).toContain('Old copy');
+    expect(client.calls[0]!.user).toContain('Make the text larger');
+    // The refined result validates and stays within the catalog.
+    expect(spec.root.type).toBe('PageShell');
+    expect((spec.root.children[0]!.props as { content: string }).content).toBe('New copy');
+    const known = new Set(catalog.map((c) => c.name));
+    expect(componentTypesOf(spec).every((t) => known.has(t))).toBe(true);
+  });
+
+  it('retries when the refinement is catalog-invalid', async () => {
+    const bad = JSON.stringify({ root: { type: 'Ghost', props: {}, children: [] } });
+    const client = fakeClient([bad, refinedJson]);
+    const { attempts } = await refineSpec({
+      currentSpec,
+      instruction: 'x',
+      catalog,
+      client,
+    });
+    expect(attempts).toBe(2);
   });
 });
 
