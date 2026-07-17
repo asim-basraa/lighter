@@ -79,9 +79,15 @@ export function createApp(deps: AppDeps): Hono {
     return c.json(model);
   });
 
-  // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured.
+  // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured. Specs are
+  // validated against the latest ingested catalog, adapted here from the inventory model.
   if (deps.specStore) {
-    registerScreenRoutes(app, deps.specStore);
+    const loadCatalog = async () => {
+      const model = (await latestInventory(deps.db)) as InventoryModel | null;
+      if (!model) return null;
+      return Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }]));
+    };
+    registerScreenRoutes(app, deps.specStore, loadCatalog);
   }
 
   return app;
