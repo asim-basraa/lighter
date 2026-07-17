@@ -46,21 +46,29 @@ async function testApp() {
   return app;
 }
 
-/** Create a screen with one saved version and deploy it; return its share token. */
-async function seedShare(app: Awaited<ReturnType<typeof testApp>>): Promise<string> {
-  await app.request('/screens', {
-    method: 'POST',
-    body: JSON.stringify({ name: 'Checkout' }),
-    headers: json,
-  });
-  await app.request('/screens/checkout/versions', {
+/** Create a named screen with one saved version and deploy it; return its share token. */
+async function seedShareNamed(
+  app: Awaited<ReturnType<typeof testApp>>,
+  name: string,
+): Promise<string> {
+  const created = (await (
+    await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+      headers: json,
+    })
+  ).json()) as { id: string };
+  await app.request(`/screens/${created.id}/versions`, {
     method: 'POST',
     body: JSON.stringify({ spec }),
     headers: json,
   });
-  const res = await app.request('/screens/checkout/versions/1/share', { method: 'POST' });
+  const res = await app.request(`/screens/${created.id}/versions/1/share`, { method: 'POST' });
   return ((await res.json()) as { token: string }).token;
 }
+
+/** Create the 'Checkout' screen with one saved version and deploy it; return its share token. */
+const seedShare = (app: Awaited<ReturnType<typeof testApp>>) => seedShareNamed(app, 'Checkout');
 
 const postComment = (
   app: Awaited<ReturnType<typeof testApp>>,
@@ -171,6 +179,25 @@ describe('element-anchored comments (#23)', () => {
     const token = await seedShare(app);
     const res = await postComment(app, token, { parentId: 9999, body: 'orphan' });
     expect(res.status).toBe(404);
+  });
+
+  it('404s a reply to a parent that exists but belongs to another screen (no cross-scope)', async () => {
+    const app = await testApp();
+    const [tokenA, tokenB] = [await seedShare(app), await seedShareNamed(app, 'Other')];
+    // A real root comment on screen B.
+    const rootB = (await (
+      await postComment(app, tokenB, { elementId: 'el-0', body: 'on other screen' })
+    ).json()) as { id: number };
+    // Screen A's token must not be able to reply to screen B's comment.
+    const res = await postComment(app, tokenA, { parentId: rootB.id, body: 'cross-scope' });
+    expect(res.status).toBe(404);
+  });
+
+  it('400s a non-integer parentId (float or numeric string)', async () => {
+    const app = await testApp();
+    const token = await seedShare(app);
+    expect((await postComment(app, token, { parentId: 1.5, body: 'x' })).status).toBe(400);
+    expect((await postComment(app, token, { parentId: '1', body: 'x' })).status).toBe(400);
   });
 
   it('404s comments on an unknown share token', async () => {
