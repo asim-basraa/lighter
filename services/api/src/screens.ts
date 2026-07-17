@@ -6,6 +6,7 @@ import {
   ScreenExistsError,
   ScreenNotFoundError,
   ScreenEmptyError,
+  InvalidNameError,
 } from './specStore.js';
 
 /** Loads the current design-system catalog to validate specs against, or null if none is ingested. */
@@ -35,7 +36,7 @@ export function registerScreenRoutes(
       if (err instanceof ScreenExistsError) {
         return c.json({ status: 'error', message: err.message }, 409);
       }
-      if (err instanceof Error && /alphanumeric/.test(err.message)) {
+      if (err instanceof InvalidNameError) {
         return c.json({ status: 'error', message: err.message }, 400);
       }
       throw err;
@@ -129,7 +130,7 @@ export function registerScreenRoutes(
       if (err instanceof ScreenExistsError) {
         return c.json({ status: 'error', message: err.message }, 409);
       }
-      if (err instanceof Error && /alphanumeric/.test(err.message)) {
+      if (err instanceof InvalidNameError) {
         return c.json({ status: 'error', message: err.message }, 400);
       }
       throw err;

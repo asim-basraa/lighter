@@ -25,6 +25,9 @@ export class ScreenNotFoundError extends Error {}
 /** Thrown when duplicating a screen that has no spec version to copy. Routes map this to 422. */
 export class ScreenEmptyError extends Error {}
 
+/** Thrown when a screen name has no alphanumeric characters to slugify. Routes map this to 400. */
+export class InvalidNameError extends Error {}
+
 /**
  * A valid screen id: lowercase alphanumerics in dash-separated segments — exactly what `slugify`
  * produces. Ids arrive from the URL (`/screens/:id`), so this is the guard that keeps a crafted id
@@ -78,7 +81,7 @@ export class SpecStore {
   async createScreen(name: string): Promise<ScreenMeta> {
     const id = slugify(name);
     if (id.length === 0) {
-      throw new Error('Screen name must contain at least one alphanumeric character');
+      throw new InvalidNameError('Screen name must contain at least one alphanumeric character');
     }
     return this.serialize(async () => {
       const dir = join(this.root, id);
@@ -161,7 +164,7 @@ export class SpecStore {
   ): Promise<{ screen: ScreenMeta; version: 1 }> {
     const newId = slugify(newName);
     if (newId.length === 0) {
-      throw new Error('Screen name must contain at least one alphanumeric character');
+      throw new InvalidNameError('Screen name must contain at least one alphanumeric character');
     }
     return this.serialize(async () => {
       if (!isValidScreenId(sourceId) || !existsSync(join(this.root, sourceId))) {
