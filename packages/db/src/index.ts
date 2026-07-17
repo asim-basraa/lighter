@@ -8,5 +8,20 @@ export type { Share, ShareTarget, ResolvedShare } from './shares.js';
 export { createComment, listComments, listCommentsForScreen, getComment } from './comments.js';
 export type { Comment, NewCommentInput } from './comments.js';
 export { getVersionState, setVersionState } from './versionStatus.js';
-export { healthChecks, inventorySnapshots, shares, comments, versionStatus } from './schema.js';
+export {
+  getSignOffSet,
+  setSignOffSet,
+  recordSignOff,
+  listSignOffs,
+  type SignOffPartyInput,
+} from './signOffs.js';
+export {
+  healthChecks,
+  inventorySnapshots,
+  shares,
+  comments,
+  versionStatus,
+  signOffConfig,
+  signOffs,
+} from './schema.js';
 export type { HealthCheck, NewHealthCheck, InventorySnapshot } from './schema.js';

@@ -91,3 +91,31 @@ export const versionStatus = sqliteTable(
 );
 
 export type VersionStatus = typeof versionStatus.$inferSelect;
+
+/** The configurable required sign-off parties per screen (#26); each has a role (customer/internal). */
+export const signOffConfig = sqliteTable(
+  'sign_off_config',
+  {
+    screenId: text('screen_id').notNull(),
+    party: text('party').notNull(),
+    role: text('role').notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.screenId, t.party] }) }),
+);
+
+/** Which party has signed off a specific version (#26). A full set of these gates 'approved'. */
+export const signOffs = sqliteTable(
+  'sign_offs',
+  {
+    screenId: text('screen_id').notNull(),
+    version: integer('version').notNull(),
+    party: text('party').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.screenId, t.version, t.party] }) }),
+);
+
+export type SignOffParty = typeof signOffConfig.$inferSelect;
+export type SignOff = typeof signOffs.$inferSelect;
