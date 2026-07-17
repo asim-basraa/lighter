@@ -10,6 +10,7 @@ import {
 } from '@lighter/db';
 import type { SpecStore } from './specStore.js';
 import { aggregateComments } from './commentAggregation.js';
+import { safeNotify, type Notifier } from './notifier.js';
 
 /**
  * Mount the review-comment routes, reached through a share token so a reviewer needs no account.
@@ -31,7 +32,12 @@ import { aggregateComments } from './commentAggregation.js';
 const MAX_BODY = 4000;
 const MAX_AUTHOR = 120;
 
-export function registerCommentRoutes(app: Hono, db: Db, store: SpecStore): void {
+export function registerCommentRoutes(
+  app: Hono,
+  db: Db,
+  store: SpecStore,
+  notifier?: Notifier,
+): void {
   app.post('/share/:token/comments', async (c) => {
     const target = await resolveShare(db, c.req.param('token'));
     if (!target) {
@@ -114,6 +120,16 @@ export function registerCommentRoutes(app: Hono, db: Db, store: SpecStore): void
       body: text,
       author,
       parentId,
+    });
+    // Notify the team a comment landed (never blocks the reviewer — see safeNotify).
+    await safeNotify(notifier, {
+      kind: 'comment',
+      screenId: comment.screenId,
+      version: comment.version,
+      elementId: comment.elementId,
+      author: comment.author,
+      body: comment.body,
+      parentId: comment.parentId,
     });
     return c.json(comment, 201);
   });

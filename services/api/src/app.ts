@@ -22,6 +22,7 @@ import { registerScreenRoutes } from './screens.js';
 import { registerShareRoutes } from './shares.js';
 import { registerCommentRoutes } from './comments.js';
 import { registerApprovalRoutes } from './approval.js';
+import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
   db: Db;
@@ -29,6 +30,8 @@ export interface AppDeps {
   specStore?: SpecStore;
   /** LLM client for spec generation. When present, POST /generate is available. */
   specGenerator?: LlmClient;
+  /** Notification sink for comment/approval events (#29). Optional — absent means no notifications. */
+  notifier?: Notifier;
 }
 
 /**
@@ -274,8 +277,8 @@ export function createApp(deps: AppDeps): Hono {
     };
     registerScreenRoutes(app, deps.specStore, loadCatalog);
     registerShareRoutes(app, deps.db, deps.specStore);
-    registerCommentRoutes(app, deps.db, deps.specStore);
-    registerApprovalRoutes(app, deps.db, deps.specStore);
+    registerCommentRoutes(app, deps.db, deps.specStore, deps.notifier);
+    registerApprovalRoutes(app, deps.db, deps.specStore, deps.notifier);
   }
 
   return app;

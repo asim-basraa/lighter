@@ -17,6 +17,7 @@ import {
   type ApprovalState,
 } from './approvalState.js';
 import { validateSignOffSet, missingSignOffs } from './signOff.js';
+import { safeNotify, type Notifier } from './notifier.js';
 
 /**
  * Mount the per-version approval routes (#25) and sign-off enforcement (#26). State is
@@ -34,7 +35,12 @@ import { validateSignOffSet, missingSignOffs } from './signOff.js';
  * `approve` only reaches `approved` once every configured sign-off party has signed the version (#26).
  * A screen with no configured set is ungated (backward-compatible with #25).
  */
-export function registerApprovalRoutes(app: Hono, db: Db, store: SpecStore): void {
+export function registerApprovalRoutes(
+  app: Hono,
+  db: Db,
+  store: SpecStore,
+  notifier?: Notifier,
+): void {
   const parseVersion = (raw: string): number | null => {
     const v = Number(raw);
     return Number.isInteger(v) && v >= 1 ? v : null;
@@ -77,7 +83,14 @@ export function registerApprovalRoutes(app: Hono, db: Db, store: SpecStore): voi
   // (see SpecStore) — two racing transitions on one version could interleave into a lost update. A
   // conditional write (UPDATE … WHERE state = expected) would close that if we ever go multi-writer.
   type Precondition = (c: Context, id: string, version: number) => Promise<Response | null>;
-  const transition = (path: string, to: ApprovalState, precondition?: Precondition) =>
+  // Best-effort side effect after a committed transition. MUST NOT throw — it runs after the state is
+  // already persisted, so a throw would surface a misleading 500 on a succeeded transition.
+  type OnSuccess = (id: string, version: number) => Promise<void>;
+  const transition = (
+    path: string,
+    to: ApprovalState,
+    opts: { precondition?: Precondition; onSuccess?: OnSuccess } = {},
+  ) =>
     app.post(path, async (c) => {
       const id = c.req.param('id') ?? '';
       const version = parseVersion(c.req.param('version') ?? '');
@@ -97,16 +110,21 @@ export function registerApprovalRoutes(app: Hono, db: Db, store: SpecStore): voi
           409,
         );
       }
-      if (precondition) {
-        const blocked = await precondition(c, id, version);
+      if (opts.precondition) {
+        const blocked = await opts.precondition(c, id, version);
         if (blocked) return blocked;
       }
       await setVersionState(db, id, version, to);
+      if (opts.onSuccess) await opts.onSuccess(id, version);
       return c.json({ version, state: to });
     });
 
   transition('/screens/:id/versions/:version/request-changes', 'changes-requested');
-  transition('/screens/:id/versions/:version/approve', 'approved', signOffGate);
+  transition('/screens/:id/versions/:version/approve', 'approved', {
+    precondition: signOffGate,
+    // Notify the team on approval — only fires when a version actually transitions to approved.
+    onSuccess: (id, version) => safeNotify(notifier, { kind: 'approval', screenId: id, version }),
+  });
 
   // Read the configured required sign-off parties for a screen.
   app.get('/screens/:id/sign-off-set', async (c) => {

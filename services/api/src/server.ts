@@ -3,6 +3,7 @@ import { createClient, configFromEnv, runMigrations } from '@lighter/db';
 import { AnthropicLlmClient } from '@lighter/generation';
 import { createApp } from './app.js';
 import { SpecStore } from './specStore.js';
+import { WebhookNotifier } from './notifier.js';
 
 /* c8 ignore start -- process entrypoint, behavior covered via createApp in app.test.ts */
 const { sqlite, db } = createClient(configFromEnv());
@@ -15,7 +16,12 @@ await specStore.init();
 // Spec generation is enabled only when an Anthropic key is present (POST /generate makes real calls).
 const specGenerator = process.env.ANTHROPIC_API_KEY ? new AnthropicLlmClient() : undefined;
 
-const app = createApp({ db, specStore, specGenerator });
+// Comment/approval notifications go to NOTIFY_WEBHOOK_URL (Slack/Discord/tracker inbound) when set.
+const notifier = process.env.NOTIFY_WEBHOOK_URL
+  ? new WebhookNotifier(process.env.NOTIFY_WEBHOOK_URL)
+  : undefined;
+
+const app = createApp({ db, specStore, specGenerator, notifier });
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port }, (info) => {
