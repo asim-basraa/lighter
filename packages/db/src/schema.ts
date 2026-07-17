@@ -49,3 +49,24 @@ export const shares = sqliteTable('shares', {
 
 export type Share = typeof shares.$inferSelect;
 export type NewShare = typeof shares.$inferInsert;
+
+/**
+ * A review comment anchored to one element of a screen spec version (#23). `elementId` is a
+ * structural json-render id (`el-0`, `el-1`, …), stable for an immutable version — so a comment
+ * survives layout changes rather than being pinned to pixels. `author` is optional (public reviewers
+ * need no account). Threads/replies land in #24.
+ */
+export const comments = sqliteTable('comments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  screenId: text('screen_id').notNull(),
+  version: integer('version').notNull(),
+  elementId: text('element_id').notNull(),
+  body: text('body').notNull(),
+  author: text('author'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert;
