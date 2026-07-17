@@ -120,7 +120,7 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
     design-system change; render-time state seeding is a future option. Review fixes: copy data on
     serialize (non-aliasing), honest AC2 comment.
 - [~] **#21–30 review surface** — IN PROGRESS (lighter PRs #61–66 merged). Public, unauthenticated
-      customer review surface at `/share/[token]`.
+  customer review surface at `/share/[token]`.
   - #21 (PR #61): deploy a version to an unguessable tokenized URL. `@lighter/db` `shares` table
     (token = 16 random bytes, one stable share per (screen, version)); `POST …/versions/:v/share`
     mints, `GET /share/:token` is the public read seam; web `/share/[token]` renders via `<SpecView>`.
@@ -128,7 +128,7 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
   - #22 (PR #62): prototype version banner (screen · v{n} · deploy date) on every deployed mock;
     UTC-stable date formatting.
   - #23 (PR #63): element-anchored comments. `comments` table (migration 0003); `POST/GET
-    /share/:token/comments` (accountless); anchor = structural `el-N` id validated against the
+/share/:token/comments` (accountless); anchor = structural `el-N` id validated against the
     version's spec. Bodies capped (public write surface). Anchoring is structural (no DS change) —
     pixel-click-on-element deferred (needs DS instrumentation).
   - #24 (PR #64): threads/replies. `comments.parent_id` (0004); a reply inherits its parent's element

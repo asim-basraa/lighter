@@ -21,6 +21,7 @@ import type { SpecStore } from './specStore.js';
 import { registerScreenRoutes } from './screens.js';
 import { registerShareRoutes } from './shares.js';
 import { registerCommentRoutes } from './comments.js';
+import { registerApprovalRoutes } from './approval.js';
 
 export interface AppDeps {
   db: Db;
@@ -274,6 +275,7 @@ export function createApp(deps: AppDeps): Hono {
     registerScreenRoutes(app, deps.specStore, loadCatalog);
     registerShareRoutes(app, deps.db, deps.specStore);
     registerCommentRoutes(app, deps.db, deps.specStore);
+    registerApprovalRoutes(app, deps.db, deps.specStore);
   }
 
   return app;

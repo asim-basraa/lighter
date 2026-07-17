@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core';
 
 /**
  * Schema is defined with drizzle's dialect-typed column helpers. The query API used everywhere
@@ -72,3 +72,22 @@ export const comments = sqliteTable('comments', {
 
 export type Comment = typeof comments.$inferSelect;
 export type NewComment = typeof comments.$inferInsert;
+
+/**
+ * Per-version approval state (#25). One row per (screen, version); a missing row means the default
+ * 'draft'. Mutable review lifecycle, so it lives here rather than in the immutable spec files.
+ */
+export const versionStatus = sqliteTable(
+  'version_status',
+  {
+    screenId: text('screen_id').notNull(),
+    version: integer('version').notNull(),
+    state: text('state').notNull(),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.screenId, t.version] }) }),
+);
+
+export type VersionStatus = typeof versionStatus.$inferSelect;
