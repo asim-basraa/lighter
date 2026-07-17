@@ -200,6 +200,37 @@ export class SpecStore {
     }
   }
 
+  /**
+   * Read a screen's INTENT.md (purpose, flows, edge states, mocked data), or null if the screen or
+   * the file doesn't exist. It lives in the screen's git dir, so it versions and exports with the
+   * screen (#32).
+   */
+  async getIntent(id: string): Promise<string | null> {
+    if (!isValidScreenId(id)) return null;
+    const path = join(this.root, id, 'INTENT.md');
+    if (!existsSync(path)) return null;
+    try {
+      return await readFile(path, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Create or replace a screen's INTENT.md and commit it. Unlike a spec version, INTENT.md is mutable
+   * (authored and re-edited), so it's overwritten in place — git keeps the history. Throws
+   * ScreenNotFoundError if the screen doesn't exist.
+   */
+  async setIntent(id: string, content: string): Promise<void> {
+    return this.serialize(async () => {
+      if (!isValidScreenId(id) || !existsSync(join(this.root, id))) {
+        throw new ScreenNotFoundError(`Screen "${id}" not found`);
+      }
+      await writeFile(join(this.root, id, 'INTENT.md'), content);
+      await this.commit(`Screen ${id} INTENT.md`);
+    });
+  }
+
   /** Run a mutation exclusively, after any in-flight mutation on this store completes. */
   private serialize<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.mutations.then(fn, fn);
@@ -212,7 +243,20 @@ export class SpecStore {
 
   private async commit(message: string): Promise<void> {
     await this.git(['add', '-A']);
+    // Skip an empty commit — `git commit` errors on a clean index. This happens when a mutable file
+    // (INTENT.md) is re-written with byte-identical content; a no-op save should succeed, not 500.
+    if (await this.isIndexClean()) return;
     await this.git(['commit', '--quiet', '-m', message]);
+  }
+
+  /** Whether the staged index has no changes (`git diff --cached --quiet` exits 0 when clean). */
+  private async isIndexClean(): Promise<boolean> {
+    try {
+      await this.git(['diff', '--cached', '--quiet']);
+      return true;
+    } catch {
+      return false; // non-zero exit → there are staged changes
+    }
   }
 
   private async git(args: string[]): Promise<string> {

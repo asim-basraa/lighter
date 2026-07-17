@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -344,5 +344,94 @@ describe('GET /specs — derived usage records', () => {
     expect(records).toEqual([
       { screen: 'Checkout', version: 'v2', components: ['PageShell', 'Button'] },
     ]);
+  });
+});
+
+describe('INTENT.md per screen (#32)', () => {
+  const md = '# Checkout\n\nPurpose: take payment.\n\nMocked: a $42 order.\n';
+
+  async function makeScreen(app: Awaited<ReturnType<typeof testApp>>) {
+    await app.request('/screens', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Checkout' }),
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  it('authors, stores, and reads back an INTENT.md; it travels with the screen dir', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+
+    const put = await app.request('/screens/checkout/intent', {
+      method: 'PUT',
+      body: JSON.stringify({ intent: md }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(put.status).toBe(200);
+
+    const got = await (await app.request('/screens/checkout/intent')).json();
+    expect(got).toEqual({ intent: md });
+    // Stored in the screen's git dir → travels with the screen for export (#33).
+    expect(readFileSync(join(root, 'checkout', 'INTENT.md'), 'utf8')).toBe(md);
+  });
+
+  it('returns null intent before any is authored', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+    expect(await (await app.request('/screens/checkout/intent')).json()).toEqual({ intent: null });
+  });
+
+  it('re-editing replaces the INTENT.md', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+    const put = (body: string) =>
+      app.request('/screens/checkout/intent', {
+        method: 'PUT',
+        body: JSON.stringify({ intent: body }),
+        headers: { 'content-type': 'application/json' },
+      });
+    await put('first');
+    await put('second');
+    expect(await (await app.request('/screens/checkout/intent')).json()).toEqual({
+      intent: 'second',
+    });
+  });
+
+  it('re-writing identical INTENT.md is an idempotent 200 (no empty-commit 500)', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+    const put = () =>
+      app.request('/screens/checkout/intent', {
+        method: 'PUT',
+        body: JSON.stringify({ intent: md }),
+        headers: { 'content-type': 'application/json' },
+      });
+    expect((await put()).status).toBe(200);
+    expect((await put()).status).toBe(200); // identical content — must not error on an empty commit
+    expect(await (await app.request('/screens/checkout/intent')).json()).toEqual({ intent: md });
+  });
+
+  it('404s intent on an unknown screen; 400s a non-string body', async () => {
+    const app = await testApp();
+    await makeScreen(app);
+    expect((await app.request('/screens/nope/intent')).status).toBe(404);
+    expect(
+      (
+        await app.request('/screens/nope/intent', {
+          method: 'PUT',
+          body: JSON.stringify({ intent: 'x' }),
+          headers: { 'content-type': 'application/json' },
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await app.request('/screens/checkout/intent', {
+          method: 'PUT',
+          body: JSON.stringify({ intent: 42 }),
+          headers: { 'content-type': 'application/json' },
+        })
+      ).status,
+    ).toBe(400);
   });
 });
