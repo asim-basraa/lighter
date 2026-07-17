@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
 import { ingest, type InventoryModel } from '@lighter/ingestion';
+import { generateSpec, GenerationError, type LlmClient } from '@lighter/generation';
 import type { SpecStore } from './specStore.js';
 import { registerScreenRoutes } from './screens.js';
 
@@ -8,6 +9,8 @@ export interface AppDeps {
   db: Db;
   /** Git-backed store for screens + spec versions. When present, the /screens routes are mounted. */
   specStore?: SpecStore;
+  /** LLM client for spec generation. When present, POST /generate is available. */
+  specGenerator?: LlmClient;
 }
 
 /**
@@ -77,6 +80,41 @@ export function createApp(deps: AppDeps): Hono {
       return c.json({ status: 'error', message: 'no inventory ingested yet' }, 404);
     }
     return c.json(model);
+  });
+
+  // Generate a spec from an intent, constrained to the ingested catalog (validate-or-retry). Mounted
+  // only when an LLM client is configured; a real model call happens only here.
+  app.post('/generate', async (c) => {
+    const generator = deps.specGenerator;
+    if (!generator) {
+      return c.json({ status: 'error', message: 'spec generation is not configured' }, 501);
+    }
+    const body = (await c.req.json().catch(() => null)) as { intent?: unknown } | null;
+    const intent = body?.intent;
+    if (typeof intent !== 'string' || intent.trim().length === 0) {
+      return c.json({ status: 'error', message: 'intent (non-empty string) is required' }, 400);
+    }
+    const model = (await latestInventory(deps.db)) as InventoryModel | null;
+    if (!model) {
+      return c.json({ status: 'error', message: 'no design-system catalog ingested yet' }, 422);
+    }
+    const catalog = model.components.map((comp) => ({
+      name: comp.name,
+      description: comp.description,
+      props: comp.props,
+    }));
+    try {
+      const { spec, attempts } = await generateSpec({ intent, catalog, client: generator });
+      return c.json({ spec, attempts });
+    } catch (err) {
+      if (err instanceof GenerationError) {
+        return c.json({ status: 'error', message: err.message, issues: err.lastIssues }, 422);
+      }
+      // An unexpected failure from the LLM call (auth, network, rate limit) — return a generic 502
+      // rather than leaking the upstream error detail to the caller.
+      console.error('spec generation failed:', err);
+      return c.json({ status: 'error', message: 'spec generation failed' }, 502);
+    }
   });
 
   // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured. Specs are
