@@ -13,14 +13,30 @@ import type { Spec, SpecNode } from './spec.js';
  */
 export type { JsonRenderSpec };
 
+/**
+ * json-render reserves these keys as ELEMENT-level fields (visibility, event bindings, repeat,
+ * watchers). The internal spec keeps only catalog `props`, so a prop named any of these can't be
+ * represented distinctly — the boundary refuses it loudly rather than letting json-render silently
+ * reinterpret a plain prop as behaviour.
+ */
+const RESERVED_ELEMENT_KEYS = ['visible', 'on', 'repeat', 'watch'] as const;
+
 /** Serialize an internal spec to a json-render spec. Ids are assigned in deterministic pre-order. */
 export function toJsonRender(spec: Spec): JsonRenderSpec {
   const elements: Record<string, UIElement> = {};
   let counter = 0;
 
   const walk = (node: SpecNode): string => {
+    for (const key of RESERVED_ELEMENT_KEYS) {
+      if (key in node.props) {
+        throw new Error(
+          `Component "${node.type}" has a prop "${key}" that collides with a json-render reserved element field; rename the prop.`,
+        );
+      }
+    }
     const id = `el-${counter++}`;
-    const element: UIElement = { type: node.type, props: node.props };
+    // Copy props so the emitted spec never aliases the internal spec's mutable objects.
+    const element: UIElement = { type: node.type, props: { ...node.props } };
     // Insert the parent before its children so element key order is stable pre-order.
     elements[id] = element;
     const childIds = node.children.map(walk);
@@ -34,17 +50,34 @@ export function toJsonRender(spec: Spec): JsonRenderSpec {
 
 /**
  * Deserialize a json-render spec back to an internal spec by walking from the root. Ids are dropped.
- * Throws if the spec references an element id that isn't present (a malformed json-render spec).
+ *
+ * The internal spec is a thin subset of json-render: it models only `type`/`props`/`children`. If a
+ * json-render spec carries something the internal spec can't represent — an element-level field
+ * (`visible`/`on`/`repeat`/`watch`) or top-level `state` — this throws rather than silently dropping
+ * it, so the loss is loud. (Round-trips that originate from `toJsonRender` never hit this.) Also
+ * throws if the spec references an element id that isn't present.
  */
 export function fromJsonRender(jr: JsonRenderSpec): Spec {
+  if (jr.state !== undefined) {
+    throw new Error(
+      'json-render spec has top-level `state`, which the internal spec cannot represent yet',
+    );
+  }
   const build = (id: string): SpecNode => {
     const element = jr.elements[id];
     if (!element) {
       throw new Error(`json-render spec references missing element "${id}"`);
     }
+    for (const key of RESERVED_ELEMENT_KEYS) {
+      if (element[key] !== undefined) {
+        throw new Error(
+          `json-render element "${id}" uses "${key}", which the internal spec cannot represent yet`,
+        );
+      }
+    }
     return {
       type: element.type,
-      props: (element.props ?? {}) as Record<string, unknown>,
+      props: { ...((element.props ?? {}) as Record<string, unknown>) },
       children: (element.children ?? []).map(build),
     };
   };

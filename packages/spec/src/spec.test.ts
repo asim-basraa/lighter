@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   SpecSchema,
   componentTypesOf,
@@ -70,6 +73,46 @@ describe('spec ↔ json-render serialization', () => {
     expect(jr.elements[jr.root]!.children).toBeUndefined();
     expect(fromJsonRender(jr)).toEqual(leaf);
   });
+
+  it('round-trips rich props losslessly (nested objects, arrays, null, empty)', () => {
+    const rich: Spec = {
+      root: {
+        type: 'Card',
+        props: {
+          title: null,
+          meta: { tags: ['a', 'b'], count: 2, nested: { deep: true } },
+          items: [1, 'two', { three: 3 }],
+          empty: {},
+        },
+        children: [{ type: 'Text', props: {}, children: [] }],
+      },
+    };
+    expect(fromJsonRender(toJsonRender(rich))).toEqual(rich);
+  });
+
+  it('does not alias prop objects across the boundary', () => {
+    const src: Spec = { root: { type: 'Text', props: { content: 'x' }, children: [] } };
+    const jr = toJsonRender(src);
+    (jr.elements[jr.root]!.props as Record<string, unknown>).content = 'mutated';
+    expect(src.root.props.content).toBe('x'); // internal spec untouched
+  });
+
+  it('refuses to serialize a prop that collides with a json-render reserved key', () => {
+    const bad: Spec = { root: { type: 'Modal', props: { visible: true }, children: [] } };
+    expect(() => toJsonRender(bad)).toThrow(/reserved element field/);
+  });
+
+  it('fails loudly deserializing element-level fields it cannot represent', () => {
+    expect(() =>
+      fromJsonRender({ root: 'a', elements: { a: { type: 'T', props: {}, visible: false } } }),
+    ).toThrow(/cannot represent/);
+  });
+
+  it('fails loudly deserializing a spec with top-level state', () => {
+    expect(() =>
+      fromJsonRender({ root: 'a', elements: { a: { type: 'T', props: {} } }, state: { n: 1 } }),
+    ).toThrow(/state/);
+  });
 });
 
 describe('SpecSchema', () => {
@@ -83,6 +126,38 @@ describe('SpecSchema', () => {
 
   it('rejects an empty type string', () => {
     expect(() => SpecSchema.parse({ root: { type: '', props: {}, children: [] } })).toThrow();
+  });
+
+  it('defaults children to [] for a hand-edited leaf that omits it', () => {
+    const parsed = SpecSchema.parse({ root: { type: 'Text', props: { content: 'hi' } } });
+    expect(parsed.root.children).toEqual([]);
+  });
+});
+
+describe('json-render isolation (AC3)', () => {
+  it('is the only package module that imports @json-render/core', () => {
+    // Walk every .ts under packages/ and services/ and assert the json-render import lives in
+    // exactly one file — the serializer boundary. Locks the isolation invariant.
+    const root = fileURLToPath(new URL('../../../', import.meta.url));
+    const offenders: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (['node_modules', 'dist', '.next', 'coverage'].includes(entry.name)) continue;
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (
+          (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+          !entry.name.includes('.test.')
+        ) {
+          // Match a real import of the package, not an incidental mention.
+          if (/from ['"]@json-render\/core['"]/.test(readFileSync(full, 'utf8'))) {
+            offenders.push(full.slice(root.length));
+          }
+        }
+      }
+    };
+    for (const top of ['packages', 'services']) walk(join(root, top));
+    expect(offenders).toEqual(['packages/spec/src/json-render.ts']);
   });
 });
 

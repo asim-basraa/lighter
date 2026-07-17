@@ -23,17 +23,28 @@ export interface Spec {
   root: SpecNode;
 }
 
-/** Zod schema for a spec node — recursive, so the whole tree is validated structurally. */
-export const SpecNodeSchema: z.ZodType<SpecNode> = z.lazy(() =>
+/** Input shape a spec node may be parsed from — `children` may be omitted for a leaf. */
+interface SpecNodeInput {
+  type: string;
+  props: Record<string, unknown>;
+  children?: SpecNodeInput[];
+}
+
+/**
+ * Zod schema for a spec node — recursive, so the whole tree is validated structurally. `children`
+ * defaults to `[]` so a hand-edited leaf can omit it (the natural way to write a leaf in JSON); the
+ * parsed output always carries a `children` array.
+ */
+export const SpecNodeSchema: z.ZodType<SpecNode, z.ZodTypeDef, SpecNodeInput> = z.lazy(() =>
   z.object({
     type: z.string().min(1),
     props: z.record(z.unknown()),
-    children: z.array(SpecNodeSchema),
+    children: z.array(SpecNodeSchema).default([]),
   }),
 );
 
 /** Zod schema for a whole spec. The parse boundary for stored/edited spec JSON. */
-export const SpecSchema: z.ZodType<Spec> = z.object({
+export const SpecSchema = z.object({
   root: SpecNodeSchema,
 });
 
