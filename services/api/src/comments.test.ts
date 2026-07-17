@@ -207,3 +207,41 @@ describe('element-anchored comments (#23)', () => {
     expect((await app.request(`/share/${bad}/comments`)).status).toBe(404);
   });
 });
+
+describe('comments aggregated per element/version (#27)', () => {
+  it('groups a screen’s comments by version + element with thread contents', async () => {
+    const app = await testApp();
+    const token = await seedShare(app); // screen "checkout", v1
+    const root = (await (
+      await postComment(app, token, { elementId: 'el-1', body: 'root note' })
+    ).json()) as { id: number };
+    await postComment(app, token, { parentId: root.id, body: 'a reply' });
+    await postComment(app, token, { elementId: 'el-0', body: 'other element' });
+
+    const res = await app.request('/screens/checkout/comments');
+    expect(res.status).toBe(200);
+    const agg = (await res.json()) as {
+      screen: string;
+      versions: {
+        version: number;
+        elements: {
+          elementId: string;
+          threads: { root: { body: string }; replies: { body: string }[] }[];
+        }[];
+      }[];
+    };
+    expect(agg.screen).toBe('checkout');
+    expect(agg.versions).toHaveLength(1);
+    expect(agg.versions[0]!.version).toBe(1);
+    const els = agg.versions[0]!.elements;
+    expect(els.map((e) => e.elementId)).toEqual(['el-1', 'el-0']);
+    // Thread contents are included: the reply is nested under its root.
+    expect(els[0]!.threads[0]!.root.body).toBe('root note');
+    expect(els[0]!.threads[0]!.replies.map((r) => r.body)).toEqual(['a reply']);
+  });
+
+  it('404s aggregation for an unknown screen', async () => {
+    const app = await testApp();
+    expect((await app.request('/screens/nope/comments')).status).toBe(404);
+  });
+});
