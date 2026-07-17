@@ -5,5 +5,7 @@ export { insertHealthCheck, listHealthChecks } from './health.js';
 export { saveInventory, latestInventory } from './inventory.js';
 export { createShare, resolveShare } from './shares.js';
 export type { Share, ShareTarget, ResolvedShare } from './shares.js';
-export { healthChecks, inventorySnapshots, shares } from './schema.js';
+export { createComment, listComments } from './comments.js';
+export type { Comment, NewCommentInput } from './comments.js';
+export { healthChecks, inventorySnapshots, shares, comments } from './schema.js';
 export type { HealthCheck, NewHealthCheck, InventorySnapshot } from './schema.js';
