@@ -119,7 +119,27 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
     top-level `state`, travels with the version (git-stored verbatim). Minimal per user: no
     design-system change; render-time state seeding is a future option. Review fixes: copy data on
     serialize (non-aliasing), honest AC2 comment.
-- [ ] #21–30 review surface
+- [~] **#21–30 review surface** — IN PROGRESS (lighter PRs #61–66 merged). Public, unauthenticated
+      customer review surface at `/share/[token]`.
+  - #21 (PR #61): deploy a version to an unguessable tokenized URL. `@lighter/db` `shares` table
+    (token = 16 random bytes, one stable share per (screen, version)); `POST …/versions/:v/share`
+    mints, `GET /share/:token` is the public read seam; web `/share/[token]` renders via `<SpecView>`.
+    Internal dashboard moved into a `(dashboard)` route group so the public page has no internal nav.
+  - #22 (PR #62): prototype version banner (screen · v{n} · deploy date) on every deployed mock;
+    UTC-stable date formatting.
+  - #23 (PR #63): element-anchored comments. `comments` table (migration 0003); `POST/GET
+    /share/:token/comments` (accountless); anchor = structural `el-N` id validated against the
+    version's spec. Bodies capped (public write surface). Anchoring is structural (no DS change) —
+    pixel-click-on-element deferred (needs DS instrumentation).
+  - #24 (PR #64): threads/replies. `comments.parent_id` (0004); a reply inherits its parent's element
+    anchor; one level deep; thread tree built client-side.
+  - #27 (PR #65): PM aggregation — `GET /screens/:id/comments` groups a screen's comments across
+    versions by version → element with thread contents (`aggregateComments`).
+  - #28 (PR #66): feed a version's comments back into `refineSpec` — element-anchored feedback folded
+    into the prompt, fenced as untrusted data + size-capped (public input). Closes the review→generate
+    loop (#23→#24→#27→#28).
+  - REMAINING: #25 approval state machine, #26 sign-off enforcement, #29 notifications, #30
+    click-through flows.
 - [ ] #31–33 handoff bundle · #34, #36, #37 auth & freshness
 - ~~#35 internal SSO~~ — **DROPPED & CLOSED** (user, 2026-07-17): no SSO support needed. The GitHub
   issue when auth is restored. The repoPath-hardening concern that rode along with #35 is preserved
