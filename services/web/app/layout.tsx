@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { tokenRootCss } from '../lib/tokenCss.js';
+import { Nav } from '../components/Nav.js';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -16,7 +17,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             source. Derived from the shared tokens object (see lib/tokenCss), not a build artifact. */}
         <style dangerouslySetInnerHTML={{ __html: tokenRootCss() }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <Nav />
+        {children}
+      </body>
     </html>
   );
 }
