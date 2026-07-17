@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from './client.js';
 import { shares } from './schema.js';
 
@@ -50,4 +50,18 @@ export async function createShare(db: Db, screenId: string, version: number): Pr
 export async function resolveShare(db: Db, token: string): Promise<ResolvedShare | null> {
   const [row] = await db.select().from(shares).where(eq(shares.token, token)).limit(1);
   return row ? { screenId: row.screenId, version: row.version, createdAt: row.createdAt } : null;
+}
+
+/**
+ * The share token for a screen's most-recently deployed version, or null if none is deployed. Used to
+ * resolve a flow link (#30) to the current deployed mock of its target screen.
+ */
+export async function latestShareForScreen(db: Db, screenId: string): Promise<string | null> {
+  const [row] = await db
+    .select()
+    .from(shares)
+    .where(eq(shares.screenId, screenId))
+    .orderBy(desc(shares.version))
+    .limit(1);
+  return row ? row.token : null;
 }

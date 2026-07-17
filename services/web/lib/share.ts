@@ -1,6 +1,13 @@
 import type { Spec } from '@lighter/spec';
 import { apiBaseUrl } from './inventory.js';
 
+/** A click-through flow link to another screen's deployed mock (#30). `token` is null if undeployed. */
+export interface FlowLink {
+  label: string;
+  targetScreenId: string;
+  token: string | null;
+}
+
 /** A deployed mock: the screen it belongs to, the version, the spec to render, and its deploy time. */
 export interface SharedVersion {
   screen: { id: string; name: string };
@@ -8,6 +15,8 @@ export interface SharedVersion {
   spec: Spec;
   /** When this version was deployed — shown in the prototype banner. */
   deployedAt: string;
+  /** Click-through navigation to other screens in the flow (#30). */
+  flow: FlowLink[];
 }
 
 /** The shared version plus a load error, if any — mirrors `LoadedInventory` so the page degrades. */

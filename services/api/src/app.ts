@@ -22,6 +22,7 @@ import { registerScreenRoutes } from './screens.js';
 import { registerShareRoutes } from './shares.js';
 import { registerCommentRoutes } from './comments.js';
 import { registerApprovalRoutes } from './approval.js';
+import { registerFlowRoutes } from './flow.js';
 import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
@@ -279,6 +280,7 @@ export function createApp(deps: AppDeps): Hono {
     registerShareRoutes(app, deps.db, deps.specStore);
     registerCommentRoutes(app, deps.db, deps.specStore, deps.notifier);
     registerApprovalRoutes(app, deps.db, deps.specStore, deps.notifier);
+    registerFlowRoutes(app, deps.db, deps.specStore);
   }
 
   return app;
