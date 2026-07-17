@@ -1,11 +1,13 @@
 import type { Spec } from '@lighter/spec';
 import { apiBaseUrl } from './inventory.js';
 
-/** A deployed mock: the screen it belongs to, the version, and the spec to render. */
+/** A deployed mock: the screen it belongs to, the version, the spec to render, and its deploy time. */
 export interface SharedVersion {
   screen: { id: string; name: string };
   version: number;
   spec: Spec;
+  /** When this version was deployed — shown in the prototype banner. */
+  deployedAt: string;
 }
 
 /** The shared version plus a load error, if any — mirrors `LoadedInventory` so the page degrades. */

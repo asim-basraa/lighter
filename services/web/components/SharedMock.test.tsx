@@ -9,6 +9,7 @@ afterEach(cleanup);
 const shared: SharedVersion = {
   screen: { id: 'checkout', name: 'Checkout' },
   version: 2,
+  deployedAt: '2026-07-17 09:30:00',
   spec: {
     root: {
       type: 'PageShell',
@@ -22,5 +23,14 @@ describe('SharedMock', () => {
   it('renders the shared spec as a live preview', () => {
     render(<SharedMock share={shared} />);
     expect(screen.getByRole('button', { name: 'Pay' })).toBeTruthy();
+  });
+
+  it('shows the prototype version banner above the mock', () => {
+    render(<SharedMock share={shared} />);
+    const banner = screen.getByRole('note');
+    expect(banner.textContent).toMatch(/prototype/i);
+    expect(banner.textContent).toContain('Checkout');
+    expect(banner.textContent).toContain('v2');
+    expect(banner.textContent).toContain('17 Jul 2026');
   });
 });

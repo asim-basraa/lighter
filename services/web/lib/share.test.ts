@@ -10,8 +10,15 @@ const spec: Spec = {
   },
 };
 
+const sharedBody = {
+  screen: { id: 'checkout', name: 'Checkout' },
+  version: 2,
+  spec,
+  deployedAt: '2026-07-17 09:30:00',
+};
+
 const okResponse = () =>
-  new Response(JSON.stringify({ screen: { id: 'checkout', name: 'Checkout' }, version: 2, spec }), {
+  new Response(JSON.stringify(sharedBody), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
@@ -20,11 +27,7 @@ describe('loadShare', () => {
   it('returns the shared version on success', async () => {
     const loaded = await loadShare('tok', () => okResponse());
     expect(loaded.error).toBeNull();
-    expect(loaded.share).toEqual({
-      screen: { id: 'checkout', name: 'Checkout' },
-      version: 2,
-      spec,
-    });
+    expect(loaded.share).toEqual(sharedBody);
   });
 
   it('folds a 404 into a not-found error without throwing', async () => {
