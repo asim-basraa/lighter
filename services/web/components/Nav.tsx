@@ -5,6 +5,7 @@ import Link from 'next/link';
 const LINKS: { href: string; label: string }[] = [
   { href: '/', label: 'Components' },
   { href: '/tokens', label: 'Tokens' },
+  { href: '/health', label: 'Health' },
 ];
 
 export function Nav() {

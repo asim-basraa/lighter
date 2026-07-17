@@ -16,7 +16,7 @@ export default async function Page() {
   const { model, error } = await loadInventory();
   return (
     <DashboardView title="Components" error={error}>
-      <ComponentGallery components={model?.components ?? []} />
+      <ComponentGallery components={model?.components ?? []} health={model?.health ?? []} />
     </DashboardView>
   );
 }
