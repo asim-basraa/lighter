@@ -48,9 +48,12 @@ export function createApp(deps: AppDeps): Hono {
       );
     }
 
-    // TODO(#35): once internal SSO auth lands, constrain repoPath to an allowlisted base directory
-    // (resolve + verify it stays under a configured root). Today a client-supplied absolute path is
-    // read from the server filesystem — acceptable only because this surface is not yet exposed.
+    // SECURITY: repoPath is a client-supplied absolute path read from the server filesystem —
+    // acceptable only because this ingest surface is not exposed to untrusted callers. If it is ever
+    // exposed, constrain repoPath to an allowlisted base directory (resolve + verify it stays under a
+    // configured root). This hardening was previously tracked under #35 (internal SSO); SSO is no
+    // longer planned, so it needs its own ticket if/when the surface is exposed — it does not ride
+    // along with auth.
     let model: InventoryModel;
     try {
       model = ingest(repoPath, artifactDir ? { artifactDir } : {});
