@@ -3,7 +3,7 @@ const nextConfig = {
   // lighter-example is consumed as TypeScript source (a sibling repo), so Next must transpile it.
   // Its json-render deps are ESM-only and create React context at module scope; transpiling them
   // alongside keeps a single React binding through Next's server bundle.
-  transpilePackages: ['lighter-example', '@json-render/core', '@json-render/react'],
+  transpilePackages: ['lighter-example', '@lighter/spec', '@json-render/core', '@json-render/react'],
   webpack: (config) => {
     // lighter-example's internal imports use `.js` specifiers that resolve to `.ts`/`.tsx` source;
     // teach webpack to follow them the way the TS "bundler" resolver and vitest already do. Real

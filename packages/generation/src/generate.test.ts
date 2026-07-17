@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { componentTypesOf } from '@lighter/spec';
-import { generateSpec, GenerationError } from './generate.js';
+import { generateSpec, generateVariations, GenerationError } from './generate.js';
 import { buildSystemPrompt, type CatalogComponent } from './prompt.js';
 import type { LlmClient } from './llm.js';
 
@@ -118,6 +118,54 @@ describe('generateSpec', () => {
     const { spec } = await generateSpec({ intent: 'x', catalog, client });
     const known = new Set(catalog.map((c) => c.name));
     expect(componentTypesOf(spec).every((t) => known.has(t))).toBe(true);
+  });
+});
+
+describe('generateVariations', () => {
+  it('generates N independently catalog-valid variations from one intent', async () => {
+    const client = fakeClient([validSpecJson, validSpecJson, validSpecJson]);
+    const results = await generateVariations({
+      intent: 'A home screen',
+      catalog,
+      client,
+      count: 3,
+    });
+    expect(results).toHaveLength(3);
+    for (const r of results) {
+      expect(r.spec.root.type).toBe('PageShell');
+      const known = new Set(catalog.map((c) => c.name));
+      expect(componentTypesOf(r.spec).every((t) => known.has(t))).toBe(true);
+    }
+  });
+
+  it('nudges each variation toward a distinct structure', async () => {
+    const client = fakeClient([validSpecJson, validSpecJson]);
+    await generateVariations({ intent: 'x', catalog, client, count: 2 });
+    expect(client.calls[0]!.user).toMatch(/Variation 1 of 2/);
+    expect(client.calls[1]!.user).toMatch(/Variation 2 of 2/);
+  });
+
+  it('retries a bad variation independently of the others', async () => {
+    const bad = JSON.stringify({ root: { type: 'Ghost', props: {}, children: [] } });
+    // Variation 1 valid; variation 2 needs a retry.
+    const client = fakeClient([validSpecJson, bad, validSpecJson]);
+    const results = await generateVariations({ intent: 'x', catalog, client, count: 2 });
+    expect(results.map((r) => r.attempts)).toEqual([1, 2]);
+  });
+
+  it('rejects a non-positive count', async () => {
+    const client = fakeClient([validSpecJson]);
+    await expect(generateVariations({ intent: 'x', catalog, client, count: 0 })).rejects.toThrow(
+      /positive integer/,
+    );
+  });
+
+  it('propagates GenerationError if a variation never validates', async () => {
+    const alwaysBad = JSON.stringify({ root: { type: 'Ghost', props: {}, children: [] } });
+    const client = fakeClient([alwaysBad]);
+    await expect(
+      generateVariations({ intent: 'x', catalog, client, count: 2, maxAttempts: 1 }),
+    ).rejects.toBeInstanceOf(GenerationError);
   });
 });
 

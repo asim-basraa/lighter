@@ -1,7 +1,13 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { listHealthChecks, saveInventory, latestInventory, type Db } from '@lighter/db';
 import { ingest, type InventoryModel } from '@lighter/ingestion';
-import { generateSpec, GenerationError, type LlmClient } from '@lighter/generation';
+import {
+  generateSpec,
+  generateVariations,
+  GenerationError,
+  type LlmClient,
+  type CatalogComponent,
+} from '@lighter/generation';
 import type { SpecStore } from './specStore.js';
 import { registerScreenRoutes } from './screens.js';
 
@@ -82,38 +88,80 @@ export function createApp(deps: AppDeps): Hono {
     return c.json(model);
   });
 
-  // Generate a spec from an intent, constrained to the ingested catalog (validate-or-retry). Mounted
-  // only when an LLM client is configured; a real model call happens only here.
-  app.post('/generate', async (c) => {
+  // Shared prelude for the generation routes: resolve the LLM client, the intent, and the catalog —
+  // or return the appropriate error response (501 not configured / 400 bad intent / 422 no catalog).
+  type GenReady = { generator: LlmClient; intent: string; catalog: CatalogComponent[] };
+  const resolveGeneration = async (
+    c: Context,
+  ): Promise<{ ok: true; value: GenReady } | { ok: false; res: Response }> => {
     const generator = deps.specGenerator;
     if (!generator) {
-      return c.json({ status: 'error', message: 'spec generation is not configured' }, 501);
+      return {
+        ok: false,
+        res: c.json({ status: 'error', message: 'spec generation is not configured' }, 501),
+      };
     }
     const body = (await c.req.json().catch(() => null)) as { intent?: unknown } | null;
     const intent = body?.intent;
     if (typeof intent !== 'string' || intent.trim().length === 0) {
-      return c.json({ status: 'error', message: 'intent (non-empty string) is required' }, 400);
+      return {
+        ok: false,
+        res: c.json({ status: 'error', message: 'intent (non-empty string) is required' }, 400),
+      };
     }
     const model = (await latestInventory(deps.db)) as InventoryModel | null;
     if (!model) {
-      return c.json({ status: 'error', message: 'no design-system catalog ingested yet' }, 422);
+      return {
+        ok: false,
+        res: c.json({ status: 'error', message: 'no design-system catalog ingested yet' }, 422),
+      };
     }
     const catalog = model.components.map((comp) => ({
       name: comp.name,
       description: comp.description,
       props: comp.props,
     }));
+    return { ok: true, value: { generator, intent, catalog } };
+  };
+
+  // Map a generation failure to a response: a GenerationError (invalid after retries) → 422 with the
+  // issues; anything else (auth/network/rate limit) → generic 502 without leaking the upstream detail.
+  const onGenerationError = (c: Context, err: unknown): Response => {
+    if (err instanceof GenerationError) {
+      return c.json({ status: 'error', message: err.message, issues: err.lastIssues }, 422);
+    }
+    console.error('spec generation failed:', err);
+    return c.json({ status: 'error', message: 'spec generation failed' }, 502);
+  };
+
+  // Generate a spec from an intent, constrained to the ingested catalog (validate-or-retry). Mounted
+  // only when an LLM client is configured; a real model call happens only here.
+  app.post('/generate', async (c) => {
+    const r = await resolveGeneration(c);
+    if (!r.ok) return r.res;
     try {
-      const { spec, attempts } = await generateSpec({ intent, catalog, client: generator });
+      const { spec, attempts } = await generateSpec({ ...r.value, client: r.value.generator });
       return c.json({ spec, attempts });
     } catch (err) {
-      if (err instanceof GenerationError) {
-        return c.json({ status: 'error', message: err.message, issues: err.lastIssues }, 422);
-      }
-      // An unexpected failure from the LLM call (auth, network, rate limit) — return a generic 502
-      // rather than leaking the upstream error detail to the caller.
-      console.error('spec generation failed:', err);
-      return c.json({ status: 'error', message: 'spec generation failed' }, 502);
+      return onGenerationError(c, err);
+    }
+  });
+
+  // Generate several independent variations from one intent (each a catalog-valid spec) for
+  // side-by-side comparison. `count` defaults to 3, clamped to 1–5.
+  app.post('/generate/variations', async (c) => {
+    const r = await resolveGeneration(c);
+    if (!r.ok) return r.res;
+    const body = (await c.req.json().catch(() => null)) as { count?: unknown } | null;
+    const count = Math.min(
+      5,
+      Math.max(1, Number.isInteger(body?.count) ? (body!.count as number) : 3),
+    );
+    try {
+      const variations = await generateVariations({ ...r.value, client: r.value.generator, count });
+      return c.json({ variations });
+    } catch (err) {
+      return onGenerationError(c, err);
     }
   });
 

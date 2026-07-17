@@ -144,3 +144,29 @@ export async function generateSpec(opts: GenerateOptions): Promise<GenerateResul
     lastIssues,
   );
 }
+
+export interface GenerateVariationsOptions extends GenerateOptions {
+  /** How many independent variations to generate. */
+  count: number;
+}
+
+/**
+ * Generate several independent variations from one intent. Each variation is produced by its own
+ * `generateSpec` run (own validate-or-retry loop) and is therefore an independently catalog-valid
+ * spec — so any of them can be saved as a screen version on its own. A per-variation nudge asks the
+ * model for a distinctly different structure so the set isn't N copies. Throws `GenerationError` if
+ * any variation can't be made valid.
+ */
+export async function generateVariations(
+  opts: GenerateVariationsOptions,
+): Promise<GenerateResult[]> {
+  if (!Number.isInteger(opts.count) || opts.count < 1) {
+    throw new Error('count must be a positive integer');
+  }
+  const results: GenerateResult[] = [];
+  for (let n = 1; n <= opts.count; n++) {
+    const variationIntent = `${opts.intent}\n\n(Variation ${n} of ${opts.count}: choose a distinctly different layout and structure from the other variations.)`;
+    results.push(await generateSpec({ ...opts, intent: variationIntent }));
+  }
+  return results;
+}
