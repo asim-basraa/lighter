@@ -1,7 +1,13 @@
 import type { Hono } from 'hono';
 import { ZodError } from 'zod';
 import { SpecSchema, validateAgainstCatalog, type Catalog, type Spec } from '@lighter/spec';
-import { SpecStore, ScreenExistsError, ScreenNotFoundError } from './specStore.js';
+import {
+  SpecStore,
+  ScreenExistsError,
+  ScreenNotFoundError,
+  ScreenEmptyError,
+  InvalidNameError,
+} from './specStore.js';
 
 /** Loads the current design-system catalog to validate specs against, or null if none is ingested. */
 export type CatalogLoader = () => Promise<Catalog | null>;
@@ -30,7 +36,7 @@ export function registerScreenRoutes(
       if (err instanceof ScreenExistsError) {
         return c.json({ status: 'error', message: err.message }, 409);
       }
-      if (err instanceof Error && /alphanumeric/.test(err.message)) {
+      if (err instanceof InvalidNameError) {
         return c.json({ status: 'error', message: err.message }, 400);
       }
       throw err;
@@ -98,6 +104,34 @@ export function registerScreenRoutes(
       // The screen could have been removed between the check above and the write (TOCTOU).
       if (err instanceof ScreenNotFoundError) {
         return c.json({ status: 'error', message: err.message }, 404);
+      }
+      throw err;
+    }
+  });
+
+  // Duplicate a screen: a new screen whose v1 is a copy of the source's latest spec.
+  app.post('/screens/:id/duplicate', async (c) => {
+    const sourceId = c.req.param('id');
+    const body = (await c.req.json().catch(() => null)) as { name?: unknown } | null;
+    const name = body?.name;
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      return c.json({ status: 'error', message: 'name (non-empty string) is required' }, 400);
+    }
+    try {
+      const { screen, version } = await store.duplicateScreen(sourceId, name);
+      return c.json({ ...screen, version }, 201);
+    } catch (err) {
+      if (err instanceof ScreenNotFoundError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      if (err instanceof ScreenEmptyError) {
+        return c.json({ status: 'error', message: err.message }, 422);
+      }
+      if (err instanceof ScreenExistsError) {
+        return c.json({ status: 'error', message: err.message }, 409);
+      }
+      if (err instanceof InvalidNameError) {
+        return c.json({ status: 'error', message: err.message }, 400);
       }
       throw err;
     }

@@ -22,6 +22,12 @@ export class ScreenExistsError extends Error {}
 /** Thrown when a screen (or its version) isn't found. Routes map this to 404. */
 export class ScreenNotFoundError extends Error {}
 
+/** Thrown when duplicating a screen that has no spec version to copy. Routes map this to 422. */
+export class ScreenEmptyError extends Error {}
+
+/** Thrown when a screen name has no alphanumeric characters to slugify. Routes map this to 400. */
+export class InvalidNameError extends Error {}
+
 /**
  * A valid screen id: lowercase alphanumerics in dash-separated segments — exactly what `slugify`
  * produces. Ids arrive from the URL (`/screens/:id`), so this is the guard that keeps a crafted id
@@ -75,7 +81,7 @@ export class SpecStore {
   async createScreen(name: string): Promise<ScreenMeta> {
     const id = slugify(name);
     if (id.length === 0) {
-      throw new Error('Screen name must contain at least one alphanumeric character');
+      throw new InvalidNameError('Screen name must contain at least one alphanumeric character');
     }
     return this.serialize(async () => {
       const dir = join(this.root, id);
@@ -144,6 +150,41 @@ export class SpecStore {
       });
       await this.commit(`Screen ${id} v${next}`);
       return next;
+    });
+  }
+
+  /**
+   * Duplicate an existing screen: create a new screen whose v1 is a faithful copy of the source's
+   * latest spec. The copy is byte-for-byte (no catalog re-validation) — it clones already-stored,
+   * already-valid data — and the source is only read, so it's untouched. One atomic commit.
+   */
+  async duplicateScreen(
+    sourceId: string,
+    newName: string,
+  ): Promise<{ screen: ScreenMeta; version: 1 }> {
+    const newId = slugify(newName);
+    if (newId.length === 0) {
+      throw new InvalidNameError('Screen name must contain at least one alphanumeric character');
+    }
+    return this.serialize(async () => {
+      if (!isValidScreenId(sourceId) || !existsSync(join(this.root, sourceId))) {
+        throw new ScreenNotFoundError(`Screen "${sourceId}" not found`);
+      }
+      const latest = (await this.listVersions(sourceId)).at(-1);
+      if (latest === undefined) {
+        throw new ScreenEmptyError(`Screen "${sourceId}" has no spec version to duplicate`);
+      }
+      const newDir = join(this.root, newId);
+      if (existsSync(newDir)) {
+        throw new ScreenExistsError(`Screen "${newId}" already exists`);
+      }
+      const sourceSpec = await readFile(join(this.root, sourceId, `${latest}.json`), 'utf8');
+      const meta: ScreenMeta = { id: newId, name: newName };
+      await mkdir(newDir, { recursive: true });
+      await writeFile(join(newDir, 'screen.json'), `${JSON.stringify(meta, null, 2)}\n`);
+      await writeFile(join(newDir, '1.json'), sourceSpec, { flag: 'wx' });
+      await this.commit(`Duplicate screen ${sourceId} → ${newId} (from v${latest})`);
+      return { screen: meta, version: 1 };
     });
   }
 

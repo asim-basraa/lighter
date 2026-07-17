@@ -214,3 +214,55 @@ describe('spec catalog validation on save (#15)', () => {
     expect(res.status).toBe(422);
   });
 });
+
+describe('duplicate a screen (#16)', () => {
+  const post = (app: Awaited<ReturnType<typeof testApp>>, path: string, body: unknown) =>
+    app.request(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+
+  async function seeded() {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    await post(app, '/screens/checkout/versions', { spec });
+    return app;
+  }
+
+  it('duplicates into an independent new screen whose v1 copies the source', async () => {
+    const app = await seeded();
+
+    const res = await post(app, '/screens/checkout/duplicate', { name: 'Checkout Copy' });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: 'checkout-copy', name: 'Checkout Copy', version: 1 });
+
+    // The copy's v1 spec equals the source's.
+    const copySpec = await (await app.request('/screens/checkout-copy/versions/1')).json();
+    expect(copySpec).toEqual({ version: 1, spec });
+
+    // The original is unchanged.
+    expect(await (await app.request('/screens/checkout')).json()).toMatchObject({ versions: [1] });
+
+    // Independence: versioning the copy does not touch the source.
+    await post(app, '/screens/checkout-copy/versions', { spec });
+    expect(await (await app.request('/screens/checkout-copy')).json()).toMatchObject({
+      versions: [1, 2],
+    });
+    expect(await (await app.request('/screens/checkout')).json()).toMatchObject({ versions: [1] });
+  });
+
+  it('404s duplicating a missing source and 422s a spec-less source', async () => {
+    const app = await testApp();
+    expect((await post(app, '/screens/nope/duplicate', { name: 'X' })).status).toBe(404);
+    await post(app, '/screens', { name: 'Empty' });
+    expect((await post(app, '/screens/empty/duplicate', { name: 'X' })).status).toBe(422);
+  });
+
+  it('409s duplicating onto an existing name and 400s a missing name', async () => {
+    const app = await seeded();
+    await post(app, '/screens', { name: 'Taken' });
+    expect((await post(app, '/screens/checkout/duplicate', { name: 'Taken' })).status).toBe(409);
+    expect((await post(app, '/screens/checkout/duplicate', {})).status).toBe(400);
+  });
+});
