@@ -15,6 +15,7 @@ const sharedBody = {
   version: 2,
   spec,
   deployedAt: '2026-07-17 09:30:00',
+  flow: [],
 };
 
 const okResponse = () =>

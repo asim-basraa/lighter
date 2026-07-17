@@ -10,6 +10,7 @@ const shared: SharedVersion = {
   screen: { id: 'checkout', name: 'Checkout' },
   version: 2,
   deployedAt: '2026-07-17 09:30:00',
+  flow: [],
   spec: {
     root: {
       type: 'PageShell',

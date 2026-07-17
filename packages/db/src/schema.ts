@@ -119,3 +119,17 @@ export const signOffs = sqliteTable(
 
 export type SignOffParty = typeof signOffConfig.$inferSelect;
 export type SignOff = typeof signOffs.$inferSelect;
+
+/** Ordered click-through flow links from a screen to other screens (#30). */
+export const flowLinks = sqliteTable(
+  'flow_links',
+  {
+    screenId: text('screen_id').notNull(),
+    position: integer('position').notNull(),
+    label: text('label').notNull(),
+    targetScreenId: text('target_screen_id').notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.screenId, t.position] }) }),
+);
+
+export type FlowLink = typeof flowLinks.$inferSelect;

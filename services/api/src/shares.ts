@@ -1,5 +1,13 @@
 import type { Hono } from 'hono';
-import { createShare, resolveShare, getVersionState, setVersionState, type Db } from '@lighter/db';
+import {
+  createShare,
+  resolveShare,
+  getVersionState,
+  setVersionState,
+  getFlow,
+  latestShareForScreen,
+  type Db,
+} from '@lighter/db';
 import type { SpecStore } from './specStore.js';
 import { DEFAULT_STATE, isApprovalState } from './approvalState.js';
 
@@ -64,7 +72,16 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
     if (!screen || !spec) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
+    // Resolve the screen's click-through flow (#30): each link → the current deployed mock of its
+    // target screen (token null when the target has no deployed version, so the UI can disable it).
+    const flow = await Promise.all(
+      (await getFlow(db, target.screenId)).map(async (link) => ({
+        label: link.label,
+        targetScreenId: link.target,
+        token: await latestShareForScreen(db, link.target),
+      })),
+    );
     // `deployedAt` (when the version was first shared) feeds the deployed mock's version banner.
-    return c.json({ screen, version: target.version, spec, deployedAt: target.createdAt });
+    return c.json({ screen, version: target.version, spec, deployedAt: target.createdAt, flow });
   });
 }

@@ -5,6 +5,7 @@ import { SpecView, type PreviewSpec } from 'lighter-example/ui';
 import { toJsonRender } from '@lighter/spec/render';
 import type { SharedVersion } from '../lib/share.js';
 import { VersionBanner } from './VersionBanner.js';
+import { FlowNav } from './FlowNav.js';
 
 /**
  * Render a deployed mock: a prototype banner (screen, version, deploy date) above the shared spec
@@ -21,6 +22,7 @@ export function SharedMock({ share }: { share: SharedVersion }) {
         version={share.version}
         deployedAt={share.deployedAt}
       />
+      <FlowNav flow={share.flow} />
       <SpecView spec={toJsonRender(share.spec) as PreviewSpec} />
     </div>
   );
