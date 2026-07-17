@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 import { SpecView, previews, type PreviewSpec } from 'lighter-example/ui';
 import type { InventoryComponent } from '../lib/inventory.js';
+import { PropsTable } from './PropsTable.js';
 
 /**
  * The component gallery: one card per cataloged component, each rendering a LIVE preview of the real
@@ -33,6 +34,7 @@ function ComponentCard({ component }: { component: InventoryComponent }) {
       <div style={previewFrame}>
         {spec ? <SpecView spec={spec} /> : <p style={muted}>No preview available</p>}
       </div>
+      <PropsTable props={component.props} />
     </li>
   );
 }
