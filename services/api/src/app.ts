@@ -4,6 +4,7 @@ import { ingest, type InventoryModel } from '@lighter/ingestion';
 import {
   generateSpec,
   generateVariations,
+  refineSpec,
   GenerationError,
   type LlmClient,
   type CatalogComponent,
@@ -163,6 +164,51 @@ export function createApp(deps: AppDeps): Hono {
     } catch (err) {
       return onGenerationError(c, err);
     }
+  });
+
+  // Refine a screen's latest spec with a follow-up instruction, saving the result as a new version.
+  // Needs both the store (to read the current spec and save the new one) and the LLM client.
+  app.post('/screens/:id/refine', async (c) => {
+    const generator = deps.specGenerator;
+    const store = deps.specStore;
+    if (!generator || !store) {
+      return c.json({ status: 'error', message: 'spec refinement is not configured' }, 501);
+    }
+    const id = c.req.param('id');
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    const latest = (await store.listVersions(id)).at(-1);
+    const currentSpec = latest === undefined ? null : await store.getVersion(id, latest);
+    if (!currentSpec) {
+      return c.json({ status: 'error', message: 'screen has no spec version to refine' }, 422);
+    }
+    const body = (await c.req.json().catch(() => null)) as { instruction?: unknown } | null;
+    const instruction = body?.instruction;
+    if (typeof instruction !== 'string' || instruction.trim().length === 0) {
+      return c.json(
+        { status: 'error', message: 'instruction (non-empty string) is required' },
+        400,
+      );
+    }
+    const model = (await latestInventory(deps.db)) as InventoryModel | null;
+    if (!model) {
+      return c.json({ status: 'error', message: 'no design-system catalog ingested yet' }, 422);
+    }
+    const catalog = model.components.map((comp) => ({
+      name: comp.name,
+      description: comp.description,
+      props: comp.props,
+    }));
+    let refined;
+    try {
+      refined = await refineSpec({ currentSpec, instruction, catalog, client: generator });
+    } catch (err) {
+      return onGenerationError(c, err);
+    }
+    // Save outside the generation try so a store/git failure isn't mislabeled a generation error.
+    const version = await store.saveVersion(id, refined.spec);
+    return c.json({ version, spec: refined.spec, attempts: refined.attempts }, 201);
   });
 
   // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured. Specs are

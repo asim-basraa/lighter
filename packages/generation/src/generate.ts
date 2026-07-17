@@ -170,3 +170,26 @@ export async function generateVariations(
   }
   return results;
 }
+
+export interface RefineOptions extends Omit<GenerateOptions, 'intent'> {
+  /** The spec being refined — included as context so the model edits it rather than starting over. */
+  currentSpec: Spec;
+  /** The follow-up instruction describing the change to apply. */
+  instruction: string;
+}
+
+/**
+ * Refine an existing spec with a follow-up instruction. The current spec is included as context and
+ * the model is asked to return the full updated spec, which then goes through the same validate-or-
+ * retry loop — so the refined result is a fresh, independently catalog-valid spec (a new version).
+ */
+export async function refineSpec(opts: RefineOptions): Promise<GenerateResult> {
+  const intent = [
+    'Here is the current spec (JSON):',
+    JSON.stringify(opts.currentSpec),
+    '',
+    'Apply the following change and return the COMPLETE updated spec (not a diff):',
+    opts.instruction,
+  ].join('\n');
+  return generateSpec({ ...opts, intent });
+}
