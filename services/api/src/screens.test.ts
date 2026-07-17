@@ -110,6 +110,19 @@ describe('screen + spec-version API', () => {
     expect(((await badSpec.json()) as { issues?: unknown }).issues).toBeDefined();
   });
 
+  it('does not let a traversal id escape the store over HTTP', async () => {
+    const app = await testApp();
+    // Percent-encoded slashes survive URL parsing as a single :id param → must be refused.
+    expect((await app.request('/screens/..%2f..%2fetc')).status).toBe(404);
+    expect((await app.request('/screens/..%2f..%2fetc/versions/1')).status).toBe(404);
+    const write = await app.request('/screens/..%2f..%2fetc/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(write.status).toBe(404);
+  });
+
   it('404s an unknown screen and an unknown version', async () => {
     const app = await testApp();
     expect((await app.request('/screens/nope')).status).toBe(404);

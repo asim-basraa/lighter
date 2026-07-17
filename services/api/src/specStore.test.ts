@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -89,5 +89,36 @@ describe('SpecStore', () => {
     await store.createScreen('Settings');
     await store.createScreen('Checkout');
     expect((await store.listScreens()).map((s) => s.id)).toEqual(['checkout', 'settings']);
+  });
+
+  it('refuses a traversal id — no read or write escapes the root', async () => {
+    const escapes = ['../evil', '../../etc', '.git', 'a/b', 'UPPER'];
+    for (const bad of escapes) {
+      expect(await store.getScreen(bad)).toBeNull();
+      expect(await store.getVersion(bad, 1)).toBeNull();
+      expect(await store.listVersions(bad)).toEqual([]);
+      await expect(store.saveVersion(bad, spec)).rejects.toBeInstanceOf(ScreenNotFoundError);
+    }
+    // Nothing was written outside the store root.
+    expect(existsSync(join(root, '..', '1.json'))).toBe(false);
+  });
+
+  it('numbers concurrent saves without collision or lost writes', async () => {
+    await store.createScreen('Checkout');
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => store.saveVersion('checkout', spec)),
+    );
+    // Every save got a distinct version and the files are 1..8 contiguous.
+    expect([...results].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(await store.listVersions('checkout')).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it('skips a corrupt screen.json instead of failing the whole listing', async () => {
+    await store.createScreen('Checkout');
+    mkdirSync(join(root, 'broken'));
+    writeFileSync(join(root, 'broken', 'screen.json'), 'not json');
+    // getScreen tolerates the bad dir; listScreens still returns the good one.
+    expect(await store.getScreen('broken')).toBeNull();
+    expect((await store.listScreens()).map((s) => s.id)).toEqual(['checkout']);
   });
 });
