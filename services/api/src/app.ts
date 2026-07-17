@@ -200,18 +200,15 @@ export function createApp(deps: AppDeps): Hono {
       description: comp.description,
       props: comp.props,
     }));
+    let refined;
     try {
-      const { spec, attempts } = await refineSpec({
-        currentSpec,
-        instruction,
-        catalog,
-        client: generator,
-      });
-      const version = await store.saveVersion(id, spec);
-      return c.json({ version, spec, attempts }, 201);
+      refined = await refineSpec({ currentSpec, instruction, catalog, client: generator });
     } catch (err) {
       return onGenerationError(c, err);
     }
+    // Save outside the generation try so a store/git failure isn't mislabeled a generation error.
+    const version = await store.saveVersion(id, refined.spec);
+    return c.json({ version, spec: refined.spec, attempts: refined.attempts }, 201);
   });
 
   // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured. Specs are

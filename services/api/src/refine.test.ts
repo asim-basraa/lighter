@@ -48,9 +48,11 @@ let root: string;
 async function testApp({
   generator,
   withStore = true,
+  ingest = true,
 }: {
   generator?: LlmClient;
   withStore?: boolean;
+  ingest?: boolean;
 } = {}) {
   const { sqlite, db } = createClient({ dialect: 'sqlite', url: ':memory:' });
   runMigrations(sqlite);
@@ -61,12 +63,26 @@ async function testApp({
     await specStore.init();
   }
   const app = createApp({ db, specStore, specGenerator: generator });
-  await app.request('/ingest', {
-    method: 'POST',
-    body: JSON.stringify({ repoPath: fixtureRepo, artifactDir: 'artifacts' }),
-    headers: { 'content-type': 'application/json' },
-  });
+  if (ingest) {
+    await app.request('/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ repoPath: fixtureRepo, artifactDir: 'artifacts' }),
+      headers: { 'content-type': 'application/json' },
+    });
+  }
   return app;
+}
+
+/** A generator that records the prompts it received (to assert what context it was given). */
+function recordingGenerator(output: string): LlmClient & { prompts: string[] } {
+  const prompts: string[] = [];
+  return {
+    prompts,
+    async complete(_system, user) {
+      prompts.push(user);
+      return output;
+    },
+  };
 }
 
 const json = { 'content-type': 'application/json' };
@@ -140,7 +156,38 @@ describe('POST /screens/:id/refine (#19)', () => {
     expect((await refine(app, 'home', '')).status).toBe(400);
   });
 
-  it('501s when generation or the store is not configured', async () => {
+  it('refines the LATEST version, saving as the next one', async () => {
+    const gen = recordingGenerator(refinedJson);
+    const app = await testApp({ generator: gen });
+    await seedScreen(app); // v1 has content "Old"
+    // Save a v2 with distinct content.
+    const v2Spec = {
+      root: {
+        type: 'PageShell',
+        props: { title: 'Home' },
+        children: [{ type: 'Text', props: { content: 'V2-content', size: 'md' }, children: [] }],
+      },
+    };
+    await app.request('/screens/home/versions', {
+      method: 'POST',
+      body: JSON.stringify({ spec: v2Spec }),
+      headers: json,
+    });
+
+    const res = await refine(app, 'home', 'tweak it');
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { version: number }).version).toBe(3);
+    // The refine used v2 (the latest) as context, not v1.
+    expect(gen.prompts[0]).toContain('V2-content');
+    expect(gen.prompts[0]).not.toContain('"Old"');
+  });
+
+  it('501s when the store is not configured', async () => {
+    const noStore = await testApp({ generator: fakeGenerator([refinedJson]), withStore: false });
+    expect((await refine(noStore, 'home', 'x')).status).toBe(501);
+  });
+
+  it('501s when generation is not configured', async () => {
     const noGen = await testApp(); // store but no generator
     expect((await refine(noGen, 'home', 'x')).status).toBe(501);
   });
