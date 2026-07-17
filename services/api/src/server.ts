@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server';
 import { createClient, configFromEnv, runMigrations } from '@lighter/db';
+import { AnthropicLlmClient } from '@lighter/generation';
 import { createApp } from './app.js';
 import { SpecStore } from './specStore.js';
 
@@ -11,7 +12,10 @@ runMigrations(sqlite);
 const specStore = new SpecStore(process.env.SPECS_DIR ?? '.lighter-specs');
 await specStore.init();
 
-const app = createApp({ db, specStore });
+// Spec generation is enabled only when an Anthropic key is present (POST /generate makes real calls).
+const specGenerator = process.env.ANTHROPIC_API_KEY ? new AnthropicLlmClient() : undefined;
+
+const app = createApp({ db, specStore, specGenerator });
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port }, (info) => {
