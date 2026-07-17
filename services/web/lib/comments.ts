@@ -8,12 +8,18 @@ export interface CommentRecord {
   elementId: string;
   body: string;
   author: string | null;
+  /** Parent comment id when this is a reply; null for a top-level comment. */
+  parentId: number | null;
   createdAt: string;
 }
 
-/** What a reviewer submits to leave a comment. */
+/**
+ * What a reviewer submits. A top-level comment carries an `elementId`; a reply carries a `parentId`
+ * (and inherits the parent's element on the server). Exactly one of the two is set.
+ */
 export interface NewComment {
-  elementId: string;
+  elementId?: string;
+  parentId?: number;
   body: string;
   author?: string;
 }

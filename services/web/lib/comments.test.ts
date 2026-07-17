@@ -9,6 +9,7 @@ const rows: CommentRecord[] = [
     elementId: 'el-1',
     body: 'Tighten spacing',
     author: 'Dana',
+    parentId: null,
     createdAt: '2026-07-17 09:30:00',
   },
 ];

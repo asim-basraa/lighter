@@ -130,6 +130,49 @@ describe('element-anchored comments (#23)', () => {
     expect((await postComment(app, token, { elementId: 'el-1', body: huge })).status).toBe(400);
   });
 
+  it('replies to a comment, inheriting the parent element, scoped to the version', async () => {
+    const app = await testApp();
+    const token = await seedShare(app);
+    const root = (await (
+      await postComment(app, token, { elementId: 'el-1', body: 'root note' })
+    ).json()) as { id: number; elementId: string };
+
+    const replied = await postComment(app, token, { parentId: root.id, body: 'a reply' });
+    expect(replied.status).toBe(201);
+    const reply = (await replied.json()) as { parentId: number; elementId: string };
+    expect(reply.parentId).toBe(root.id);
+    expect(reply.elementId).toBe('el-1'); // inherited from the parent, not client-supplied
+
+    const list = (await (await app.request(`/share/${token}/comments`)).json()) as {
+      body: string;
+      parentId: number | null;
+    }[];
+    expect(list.map((c) => [c.body, c.parentId])).toEqual([
+      ['root note', null],
+      ['a reply', root.id],
+    ]);
+  });
+
+  it('rejects replying to a reply (threads are one level deep)', async () => {
+    const app = await testApp();
+    const token = await seedShare(app);
+    const root = (await (
+      await postComment(app, token, { elementId: 'el-0', body: 'root' })
+    ).json()) as { id: number };
+    const reply = (await (
+      await postComment(app, token, { parentId: root.id, body: 'reply' })
+    ).json()) as { id: number };
+    const res = await postComment(app, token, { parentId: reply.id, body: 'nested' });
+    expect(res.status).toBe(400);
+  });
+
+  it('404s a reply whose parent is not in this version', async () => {
+    const app = await testApp();
+    const token = await seedShare(app);
+    const res = await postComment(app, token, { parentId: 9999, body: 'orphan' });
+    expect(res.status).toBe(404);
+  });
+
   it('404s comments on an unknown share token', async () => {
     const app = await testApp();
     const bad = 'ab'.repeat(16);
