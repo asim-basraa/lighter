@@ -123,6 +123,13 @@ describe('element-anchored comments (#23)', () => {
     expect((await postComment(app, token, { body: 'no anchor' })).status).toBe(400);
   });
 
+  it('400s an over-length body — a public write surface must bound stored size', async () => {
+    const app = await testApp();
+    const token = await seedShare(app);
+    const huge = 'x'.repeat(4001);
+    expect((await postComment(app, token, { elementId: 'el-1', body: huge })).status).toBe(400);
+  });
+
   it('404s comments on an unknown share token', async () => {
     const app = await testApp();
     const bad = 'ab'.repeat(16);

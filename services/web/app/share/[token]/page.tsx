@@ -22,7 +22,7 @@ export default async function SharePage({ params }: { params: { token: string } 
       </main>
     );
   }
-  const { comments } = await loadComments(apiCommentsFetcher(params.token));
+  const { comments, error: commentsError } = await loadComments(apiCommentsFetcher(params.token));
   return (
     <div style={layout}>
       <div style={mockPane}>
@@ -32,6 +32,7 @@ export default async function SharePage({ params }: { params: { token: string } 
         token={params.token}
         elements={specElements(share.spec)}
         initialComments={comments}
+        loadError={commentsError}
       />
     </div>
   );

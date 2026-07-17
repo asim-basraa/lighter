@@ -13,12 +13,21 @@ export async function POST(
   { params }: { params: { token: string } },
 ): Promise<Response> {
   const body = await req.text();
-  const upstream = await fetch(
-    new URL(`/share/${encodeURIComponent(params.token)}/comments`, apiBaseUrl()),
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body, cache: 'no-store' },
-  );
-  return new Response(await upstream.text(), {
-    status: upstream.status,
-    headers: { 'content-type': 'application/json' },
-  });
+  try {
+    const upstream = await fetch(
+      new URL(`/share/${encodeURIComponent(params.token)}/comments`, apiBaseUrl()),
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body, cache: 'no-store' },
+    );
+    return new Response(await upstream.text(), {
+      status: upstream.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch (err) {
+    // The Lighter API was unreachable — surface a clean 502 rather than an unhandled 500.
+    console.error('comment proxy failed to reach the API:', err);
+    return Response.json(
+      { status: 'error', message: 'comment service unavailable' },
+      { status: 502 },
+    );
+  }
 }

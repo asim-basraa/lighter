@@ -18,11 +18,14 @@ export function CommentsPanel({
   token,
   elements,
   initialComments,
+  loadError = null,
   submit = postComment,
 }: {
   token: string;
   elements: SpecElement[];
   initialComments: CommentRecord[];
+  /** Set when the initial comment load failed, so the panel says so instead of "no comments yet". */
+  loadError?: string | null;
   submit?: SubmitFn;
 }) {
   const [comments, setComments] = useState(initialComments);
@@ -58,8 +61,10 @@ export function CommentsPanel({
     <section style={panel} aria-label="Review comments">
       <h2 style={heading}>Comments</h2>
 
-      {comments.length === 0 ? (
-        <p style={muted}>No comments yet. Click an element below to leave the first.</p>
+      {loadError ? (
+        <p style={muted}>Couldn’t load existing comments. You can still leave a new one below.</p>
+      ) : comments.length === 0 ? (
+        <p style={muted}>No comments yet. Choose an element below to leave the first.</p>
       ) : (
         <ul role="list" aria-label="Comments" style={list}>
           {comments.map((c) => (

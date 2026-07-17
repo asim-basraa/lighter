@@ -34,6 +34,12 @@ describe('CommentsPanel', () => {
     expect(within(list).getByText(/Button/)).toBeTruthy();
   });
 
+  it('signals a failed load instead of showing an empty state', () => {
+    render(<CommentsPanel token="tok" elements={elements} initialComments={[]} loadError="boom" />);
+    expect(screen.getByText(/couldn.t load existing comments/i)).toBeTruthy();
+    expect(screen.queryByText(/no comments yet/i)).toBeNull();
+  });
+
   it('submits a new comment for the chosen element and shows it', async () => {
     const submit = vi.fn(
       async (_token: string, input: { elementId: string; body: string; author?: string }) =>
