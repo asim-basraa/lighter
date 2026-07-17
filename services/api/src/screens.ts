@@ -162,6 +162,34 @@ export function registerScreenRoutes(
     }
   });
 
+  // Read a screen's INTENT.md (null when none authored yet).
+  app.get('/screens/:id/intent', async (c) => {
+    const id = c.req.param('id');
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    return c.json({ intent: await store.getIntent(id) });
+  });
+
+  // Author / replace a screen's INTENT.md. Stored in the screen's git dir so it exports with it (#32).
+  app.put('/screens/:id/intent', async (c) => {
+    const id = c.req.param('id');
+    const body = (await c.req.json().catch(() => null)) as { intent?: unknown } | null;
+    const intent = body?.intent;
+    if (typeof intent !== 'string') {
+      return c.json({ status: 'error', message: 'intent (string) is required' }, 400);
+    }
+    try {
+      await store.setIntent(id, intent);
+      return c.json({ intent });
+    } catch (err) {
+      if (err instanceof ScreenNotFoundError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      throw err;
+    }
+  });
+
   // Fetch one version's spec.
   app.get('/screens/:id/versions/:version', async (c) => {
     const id = c.req.param('id');
