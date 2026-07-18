@@ -54,6 +54,16 @@ export const SpecSchema = z.object({
   data: z.record(z.unknown()).optional(),
 });
 
+/**
+ * Component types the spec references that are NOT in the known catalog — i.e. removed or renamed
+ * components (#37). A non-empty result means the spec is stale against the current design system; an
+ * empty result means every component it uses still exists, so the spec stays valid. First-seen order.
+ */
+export function staleComponents(spec: Spec, known: Iterable<string>): string[] {
+  const knownSet = known instanceof Set ? known : new Set(known);
+  return componentTypesOf(spec).filter((type) => !knownSet.has(type));
+}
+
 /** Collect every distinct component `type` referenced anywhere in a spec, in first-seen order. */
 export function componentTypesOf(spec: Spec): string[] {
   const seen = new Set<string>();
