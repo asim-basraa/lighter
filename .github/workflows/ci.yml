@@ -45,3 +45,9 @@ jobs:
       - name: Build web (production bundle)
         working-directory: lighter
         run: pnpm --filter @lighter/web build
+      - name: Build design system (dist artifacts)
+        working-directory: lighter
+        run: pnpm --filter @lighter/design-system build
+      - name: Build starter (production bundle)
+        working-directory: lighter
+        run: pnpm --filter @lighter/starter build

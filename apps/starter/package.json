@@ -1,0 +1,24 @@
+{
+  "name": "@lighter/starter",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4100",
+    "build": "next build",
+    "start": "next start -p 4100",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lighter/design-system": "workspace:*",
+    "@lighter/spec": "workspace:*",
+    "next": "^14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.7.2"
+  }
+}

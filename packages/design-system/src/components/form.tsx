@@ -184,7 +184,7 @@ export function Field({
   children?: ReactNode;
 }) {
   return (
-    <div className={cx('lui-field', error && 'lui-field--invalid', className)} style={style}>
+    <div className={cx('lui-field', error ? 'lui-field--invalid' : null, className)} style={style}>
       {label != null && (
         <Label htmlFor={htmlFor} required={required}>
           {label}
