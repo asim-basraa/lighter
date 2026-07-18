@@ -126,3 +126,73 @@ describe('project-scoped deploy + review (#87 scoping part 2)', () => {
     expect((await agg.json()) as { versions: unknown }).toHaveProperty('versions');
   });
 });
+
+describe('project-scoped approval / flow / handoff (#87 scoping part 2b)', () => {
+  it('scopes the approval lifecycle per project (same screen id)', async () => {
+    const { app, db } = await scopedApp();
+    const a = await project(db, 'acme');
+    const b = await project(db, 'globex');
+    await deployHome(app, a, 'Acme Home'); // deploy advances draft → shared for acme:home v1
+    await deployHome(app, b, 'Globex Home');
+
+    const approve = await app.request('/screens/home/versions/1/approve', {
+      method: 'POST',
+      headers: a,
+    });
+    expect(approve.status).toBe(200);
+    expect(((await approve.json()) as { state: string }).state).toBe('approved');
+
+    // globex's identical screen id is untouched — still 'shared'.
+    const statusB = await app.request('/screens/home/versions/1/status', { headers: b });
+    expect(((await statusB.json()) as { state: string }).state).toBe('shared');
+  });
+
+  it("exports an approved version with the caller project's catalog", async () => {
+    const { app, db } = await scopedApp();
+    const a = await project(db, 'acme');
+    await deployHome(app, a, 'Acme Home');
+    await app.request('/screens/home/versions/1/approve', { method: 'POST', headers: a });
+
+    const exp = await app.request('/screens/home/versions/1/export', { headers: a });
+    expect(exp.status).toBe(200);
+    const bundle = (await exp.json()) as { catalogPrompt: string };
+    expect(bundle.catalogPrompt).toContain('PageShell'); // acme's ingested catalog
+  });
+
+  it('scopes flow and resolves flow-target tokens within the project', async () => {
+    const { app, db } = await scopedApp();
+    const a = await project(db, 'acme');
+    const tokenHome = await deployHome(app, a, 'Acme Home');
+
+    // A second screen 'receipt', deployed so it has a share token.
+    await app.request('/screens', {
+      method: 'POST',
+      headers: json(a),
+      body: JSON.stringify({ name: 'Receipt' }),
+    });
+    await app.request('/screens/receipt/versions', {
+      method: 'POST',
+      headers: json(a),
+      body: JSON.stringify({ spec: { root: { type: 'PageShell', props: { title: 'Receipt' }, children: [] } } }),
+    });
+    await app.request('/screens/receipt/versions/1/share', {
+      method: 'POST',
+      headers: json(a),
+      body: '{}',
+    });
+
+    const setFlow = await app.request('/screens/home/flow', {
+      method: 'PUT',
+      headers: json(a),
+      body: JSON.stringify({ links: [{ label: 'View receipt', target: 'receipt' }] }),
+    });
+    expect(setFlow.status).toBe(200);
+
+    const render = (await (await app.request(`/share/${tokenHome}`)).json()) as {
+      flow: { targetScreenId: string; token: string | null }[];
+    };
+    expect(render.flow).toHaveLength(1);
+    expect(render.flow[0]!.targetScreenId).toBe('receipt');
+    expect(render.flow[0]!.token).toBeTruthy(); // target's share resolved within acme's project
+  });
+});

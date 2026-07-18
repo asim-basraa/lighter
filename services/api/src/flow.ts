@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
 import { getFlow, setFlow, type Db, type FlowLinkInput } from '@lighter/db';
-import type { SpecStore } from './specStore.js';
+import type { ScreenScope } from './screenScope.js';
 
 /**
  * Mount the click-through flow routes (#30). A screen's flow is an ordered list of labelled links to
@@ -13,17 +13,19 @@ import type { SpecStore } from './specStore.js';
 /** Bound the flow size: each link is a DB query on the public share read, so keep it small. */
 const MAX_FLOW_LINKS = 20;
 
-export function registerFlowRoutes(app: Hono, db: Db, store: SpecStore): void {
+export function registerFlowRoutes(app: Hono, db: Db, scope: ScreenScope): void {
   app.get('/screens/:id/flow', async (c) => {
     const id = c.req.param('id');
+    const store = await scope.storeFor(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
-    return c.json({ links: await getFlow(db, id) });
+    return c.json({ links: await getFlow(db, scope.keyFor(c, id)) });
   });
 
   app.put('/screens/:id/flow', async (c) => {
     const id = c.req.param('id');
+    const store = await scope.storeFor(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
@@ -50,7 +52,7 @@ export function registerFlowRoutes(app: Hono, db: Db, store: SpecStore): void {
       if (typeof link.target !== 'string' || link.target.trim().length === 0) {
         return c.json({ status: 'error', message: 'each link needs a target screen id' }, 400);
       }
-      // The target must be a real screen, so a flow link can never point at nothing.
+      // The target must be a real screen in the same scope, so a link can never point at nothing.
       if (!(await store.getScreen(link.target))) {
         return c.json(
           { status: 'error', message: `target screen "${link.target}" not found` },
@@ -59,7 +61,8 @@ export function registerFlowRoutes(app: Hono, db: Db, store: SpecStore): void {
       }
       clean.push({ label: link.label, target: link.target });
     }
-    await setFlow(db, id, clean);
-    return c.json({ links: await getFlow(db, id) });
+    const key = scope.keyFor(c, id);
+    await setFlow(db, key, clean);
+    return c.json({ links: await getFlow(db, key) });
   });
 }

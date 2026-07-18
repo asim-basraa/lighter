@@ -97,11 +97,14 @@ export function registerShareRoutes(app: Hono, db: Db, scope: ScreenScope): void
     }
     // Resolve the screen's click-through flow (#30): each link → the current deployed mock of its
     // target screen (token null when the target has no deployed version, so the UI can disable it).
+    // Flow targets are stored as bare screen ids, so re-namespace them into this share's project to
+    // look up the target's share token (a no-op in global mode where projectId is null).
+    const targetKey = (t: string) => (resolved.projectId ? `${resolved.projectId}:${t}` : t);
     const flow = await Promise.all(
       (await getFlow(db, target.screenId)).map(async (link) => ({
         label: link.label,
         targetScreenId: link.target,
-        token: await latestShareForScreen(db, link.target),
+        token: await latestShareForScreen(db, targetKey(link.target)),
       })),
     );
     // `deployedAt` (when the version was first shared) feeds the deployed mock's version banner.

@@ -300,14 +300,15 @@ export function createApp(deps: AppDeps): Hono {
     const globalScope: ScreenScope = {
       storeFor: async () => globalStore,
       keyFor: (_c, screenId) => screenId,
-      resolveKey: async (key) => ({ store: globalStore, screenId: key }),
+      projectIdFor: () => null,
+      resolveKey: async (key) => ({ store: globalStore, screenId: key, projectId: null }),
     };
     registerScreenRoutes(app, resolveStore, resolveCatalog);
     registerShareRoutes(app, deps.db, globalScope);
     registerCommentRoutes(app, deps.db, globalScope, deps.notifier);
-    registerApprovalRoutes(app, deps.db, globalStore, deps.notifier);
-    registerFlowRoutes(app, deps.db, globalStore);
-    registerHandoffRoutes(app, deps.db, globalStore);
+    registerApprovalRoutes(app, deps.db, globalScope, deps.notifier);
+    registerFlowRoutes(app, deps.db, globalScope);
+    registerHandoffRoutes(app, deps.db, globalScope);
   } else if (deps.storeProvider && deps.auth) {
     const provider = deps.storeProvider;
     const guard = requireProject(deps.auth);
@@ -325,15 +326,20 @@ export function createApp(deps: AppDeps): Hono {
     const scopedScope: ScreenScope = {
       storeFor: (c) => provider.forProject(c.get('project').id),
       keyFor: (c, screenId) => `${c.get('project').id}:${screenId}`,
+      projectIdFor: (c) => c.get('project').id,
       resolveKey: async (key) => {
         const i = key.indexOf(':');
         if (i <= 0) return null;
-        return { store: await provider.forProject(key.slice(0, i)), screenId: key.slice(i + 1) };
+        const projectId = key.slice(0, i);
+        return { store: await provider.forProject(projectId), screenId: key.slice(i + 1), projectId };
       },
     };
     registerScreenRoutes(app, resolveStore, resolveCatalog);
     registerShareRoutes(app, deps.db, scopedScope);
     registerCommentRoutes(app, deps.db, scopedScope, deps.notifier);
+    registerApprovalRoutes(app, deps.db, scopedScope, deps.notifier);
+    registerFlowRoutes(app, deps.db, scopedScope);
+    registerHandoffRoutes(app, deps.db, scopedScope);
   }
 
   // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.

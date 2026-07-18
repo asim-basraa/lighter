@@ -3,7 +3,7 @@ import { toJsonRender, type Spec } from '@lighter/spec';
 import { catalogPrompt } from '@lighter/generation';
 import { latestInventory, getVersionState, type Db } from '@lighter/db';
 import type { InventoryModel } from '@lighter/ingestion';
-import type { SpecStore } from './specStore.js';
+import type { ScreenScope } from './screenScope.js';
 
 /**
  * A standalone React export of the spec (#33): a self-contained `.tsx` that embeds the json-render
@@ -30,13 +30,14 @@ export default function ${componentName}() {
  * file, the screen's INTENT.md (#32), and a standalone React export. Export is allowed ONLY for a
  * version whose approval state is `approved` (#25) — an unapproved version is refused.
  */
-export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void {
+export function registerHandoffRoutes(app: Hono, db: Db, scope: ScreenScope): void {
   app.get('/screens/:id/versions/:version/export', async (c) => {
     const id = c.req.param('id');
     const version = Number(c.req.param('version'));
     if (!Number.isInteger(version) || version < 1) {
       return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
     }
+    const store = await scope.storeFor(c);
     const screen = await store.getScreen(id);
     const spec = await store.getVersion(id, version);
     if (!screen || !spec) {
@@ -44,7 +45,7 @@ export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void
     }
 
     // Only an approved version may be exported.
-    const state = (await getVersionState(db, id, version)) ?? 'draft';
+    const state = (await getVersionState(db, scope.keyFor(c, id), version)) ?? 'draft';
     if (state !== 'approved') {
       return c.json(
         { status: 'error', message: 'only an approved version can be exported', state },
@@ -52,10 +53,10 @@ export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void
       );
     }
 
-    // The catalog prompt + tokens come from the CURRENT ingested design system, not the catalog the
-    // version was approved against. If the design system was re-ingested since approval these reflect
-    // now, not approval-time (see #37 for the drift the catalog can undergo).
-    const model = (await latestInventory(db)) as InventoryModel | null;
+    // The catalog prompt + tokens come from the CURRENT ingested design system (the caller's project),
+    // not the catalog the version was approved against. If the design system was re-ingested since
+    // approval these reflect now, not approval-time (see #37 for the drift the catalog can undergo).
+    const model = (await latestInventory(db, scope.projectIdFor(c))) as InventoryModel | null;
     if (!model) {
       return c.json({ status: 'error', message: 'no design-system catalog ingested' }, 422);
     }
