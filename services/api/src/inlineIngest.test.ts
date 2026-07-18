@@ -48,6 +48,26 @@ describe('POST /inventory — cloud push ingest (#90)', () => {
     expect((await app.request('/inventory')).status).toBe(404);
   });
 
+  it('GET /projects/inventory returns the pushed inventory, 404 before any push', async () => {
+    const { app, db } = testApp();
+    const token = await authed(db);
+    const auth = { authorization: `Bearer ${token}` };
+
+    expect((await app.request('/projects/inventory', { headers: auth })).status).toBe(404);
+
+    await app.request('/inventory', {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ catalog, tokens }),
+    });
+
+    const res = await app.request('/projects/inventory', { headers: auth });
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { components: { name: string }[] }).toMatchObject({
+      components: [{ name: 'Button' }],
+    });
+  });
+
   it('refuses an unauthenticated push with 401', async () => {
     const { app } = testApp();
     const res = await app.request('/inventory', {
