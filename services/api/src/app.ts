@@ -307,6 +307,14 @@ export function createApp(deps: AppDeps): Hono {
       return c.json({ id: project.id, name: project.name });
     });
 
+    // The project's latest pushed inventory (the read counterpart to POST /inventory; `lighter inventory`).
+    app.get('/projects/inventory', guard, async (c) => {
+      const project = c.get('project');
+      const model = await latestInventory(deps.db, project.id);
+      if (!model) return c.json({ status: 'error', message: 'no inventory pushed yet' }, 404);
+      return c.json(model);
+    });
+
     // Cloud push ingest (#90): the CLI / GitHub Action sends the built artifacts `{catalog, tokens}`
     // inline — the API never reads the client's filesystem (that's the on-disk-only `POST /ingest`).
     // The inventory is scoped to the project the bearer token belongs to.
