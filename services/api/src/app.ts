@@ -23,6 +23,7 @@ import { registerShareRoutes } from './shares.js';
 import { registerCommentRoutes } from './comments.js';
 import { registerApprovalRoutes } from './approval.js';
 import { registerFlowRoutes } from './flow.js';
+import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import type { Notifier } from './notifier.js';
 
@@ -284,6 +285,7 @@ export function createApp(deps: AppDeps): Hono {
     registerCommentRoutes(app, deps.db, deps.specStore, deps.notifier);
     registerApprovalRoutes(app, deps.db, deps.specStore, deps.notifier);
     registerFlowRoutes(app, deps.db, deps.specStore);
+    registerHandoffRoutes(app, deps.db, deps.specStore);
   }
 
   // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.
