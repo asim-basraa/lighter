@@ -147,10 +147,26 @@ esbuild/rollup multi-arch; `better-sqlite3` is kept x64 to match pnpm's node.
   - #30 (PR #70): click-through flows — per-screen flow links to other screens, resolved to their
     deployed mocks, rendered as nav on the mock. DS-agnostic (no in-component dispatch; see #23).
   - **Review surface #21–30 COMPLETE.**
-- [~] **#31–34, #36, #37 — handoff + freshness** — IN PROGRESS. #31 catalog prompt output, #32
-  INTENT.md per screen, #33 handoff bundle (needs #31+#32+#25), #34 share expiry (extends #21),
-  #36 re-ingest on push webhook, #37 stale-spec flagging. (#35 SSO dropped.)
-- [ ] #31–33 handoff bundle · #34, #36, #37 auth & freshness
+- [x] **#31–34, #36, #37 — handoff + freshness** — MERGED (lighter PRs #71–76).
+  - #31 (PR #71): `catalogPrompt(catalog)` — deterministic machine-readable catalog prompt; reused by
+    the generation system prompt and the handoff bundle.
+  - #32 (PR #72): INTENT.md per screen — `SpecStore.get/setIntent`, stored in the screen's git dir;
+    `GET/PUT /screens/:id/intent`. (Also hardened `commit()` to skip an empty commit.)
+  - #34 (PR #73): optional share expiry — `shares.expires_at`; `resolveShare` refuses expired/unknown;
+    deploy accepts `expiresInSeconds`. Flow resolution returns the highest LIVE token.
+  - #37 (PR #74): stale-spec flagging — `staleComponents(spec, known)`; `GET /specs` carries
+    `stale` + `staleComponents` vs the current catalog.
+  - #36 (PR #75): re-ingest on push webhook — `POST /webhooks/design-system` (server-configured repo,
+    idempotent per commit, REQUIRED HMAC secret). `ingested_commits` ledger.
+  - #33 (PR #76): handoff bundle — `GET /screens/:id/versions/:version/export` (approved-only) →
+    { spec, catalogPrompt, tokens, intent, reactExport (standalone .tsx via `<SpecView>`) }.
+
+## ✅ BUILD COMPLETE (2026-07-18)
+
+Every backlog ticket is merged to `main` and CI-green. #35 (SSO) dropped per user. Slices #1–34, #36,
+#37 shipped via the TDD → fresh code-review subagent → fix → gate-green → auto-merge loop; **354
+tests**. No open issues, no open PRs.
+
 - ~~#35 internal SSO~~ — **DROPPED & CLOSED** (user, 2026-07-17): no SSO support needed. The GitHub
   issue when auth is restored. The repoPath-hardening concern that rode along with #35 is preserved
   as a standalone SECURITY note in `services/api/src/app.ts` (branch `chore/drop-sso-35`) — it needs
