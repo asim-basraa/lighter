@@ -22,6 +22,40 @@ export function hasFlag(argv: string[], name: string): boolean {
   return argv.includes(name);
 }
 
+/** Flags that take a following value (everything else is treated as a boolean flag). */
+const VALUE_FLAGS = new Set([
+  '--url',
+  '--token',
+  '--dir',
+  '--version',
+  '--expires',
+  '--screen',
+]);
+
+/** Split argv into positional args and flags. `--value-flag x` consumes `x`; other `--flags` are booleans. */
+export function parseArgs(argv: string[]): {
+  positionals: string[];
+  flags: Record<string, string | boolean>;
+} {
+  const positionals: string[] = [];
+  const flags: Record<string, string | boolean> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i]!;
+    if (token.startsWith('--')) {
+      const next = argv[i + 1];
+      if (VALUE_FLAGS.has(token) && next !== undefined && !next.startsWith('--')) {
+        flags[token] = next;
+        i++;
+      } else {
+        flags[token] = true;
+      }
+    } else {
+      positionals.push(token);
+    }
+  }
+  return { positionals, flags };
+}
+
 /** Load `lighter.config.json` from a directory; returns {} if absent or unreadable/invalid. */
 export function loadConfigFile(cwd: string): { url?: string; token?: string } {
   try {
