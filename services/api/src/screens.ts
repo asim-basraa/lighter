@@ -1,4 +1,4 @@
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
 import { ZodError } from 'zod';
 import {
   SpecSchema,
@@ -16,19 +16,23 @@ import {
   InvalidNameError,
 } from './specStore.js';
 
-/** Loads the current design-system catalog to validate specs against, or null if none is ingested. */
-export type CatalogLoader = () => Promise<Catalog | null>;
+/** Resolve the SpecStore for a request — the single global store, or the caller's project store (#87). */
+export type StoreResolver = (c: Context) => Promise<SpecStore>;
+
+/** Loads the catalog to validate specs against (global, or the caller's project), or null if none. */
+export type CatalogResolver = (c: Context) => Promise<Catalog | null>;
 
 /**
- * Mount the screen + spec-version routes on the app. Registered only when a SpecStore is configured,
- * so the API can run without the git-backed spec store (e.g. the ingestion-only surface). Screens
- * and their versions live in git; these routes are the CRUD over that store. Saving a version
- * validates the spec against the ingested catalog (via `loadCatalog`).
+ * Mount the screen + spec-version routes on the app. Registered only when a spec store is configured.
+ * The store and catalog are resolved per-request (`resolveStore`/`resolveCatalog`), so the same route
+ * logic serves both the single global store and a per-project scoped store (#87). Screens and their
+ * versions live in git; these routes are the CRUD over that store. Saving a version validates the
+ * spec against the ingested catalog.
  */
 export function registerScreenRoutes(
   app: Hono,
-  store: SpecStore,
-  loadCatalog: CatalogLoader,
+  resolveStore: StoreResolver,
+  resolveCatalog: CatalogResolver,
 ): void {
   // Create a screen.
   app.post('/screens', async (c) => {
@@ -37,6 +41,7 @@ export function registerScreenRoutes(
     if (typeof name !== 'string' || name.trim().length === 0) {
       return c.json({ status: 'error', message: 'name (non-empty string) is required' }, 400);
     }
+    const store = await resolveStore(c);
     try {
       return c.json(await store.createScreen(name), 201);
     } catch (err) {
@@ -51,7 +56,7 @@ export function registerScreenRoutes(
   });
 
   // List all screens.
-  app.get('/screens', async (c) => c.json(await store.listScreens()));
+  app.get('/screens', async (c) => c.json(await (await resolveStore(c)).listScreens()));
 
   // Derived usage records — one per screen's LATEST version — for the dashboard's blast-radius view:
   // { screen (name), version (`v{n}`), components (referenced types) }. Screens with no version are
@@ -61,7 +66,8 @@ export function registerScreenRoutes(
   // the current catalog (removed/renamed) — `stale` + the offending `staleComponents`. When no
   // catalog is ingested we can't judge, so specs are reported not-stale.
   app.get('/specs', async (c) => {
-    const catalog = await loadCatalog();
+    const store = await resolveStore(c);
+    const catalog = await resolveCatalog(c);
     const known = catalog ? new Set(Object.keys(catalog)) : null;
     const records: {
       screen: string;
@@ -90,6 +96,7 @@ export function registerScreenRoutes(
   // A screen's metadata plus its version numbers.
   app.get('/screens/:id', async (c) => {
     const id = c.req.param('id');
+    const store = await resolveStore(c);
     const meta = await store.getScreen(id);
     if (!meta) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
@@ -102,6 +109,7 @@ export function registerScreenRoutes(
   // structured errors and nothing is written.
   app.post('/screens/:id/versions', async (c) => {
     const id = c.req.param('id');
+    const store = await resolveStore(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
@@ -123,7 +131,7 @@ export function registerScreenRoutes(
       throw err;
     }
 
-    const catalog = await loadCatalog();
+    const catalog = await resolveCatalog(c);
     if (!catalog) {
       return c.json(
         {
@@ -158,6 +166,7 @@ export function registerScreenRoutes(
     if (typeof name !== 'string' || name.trim().length === 0) {
       return c.json({ status: 'error', message: 'name (non-empty string) is required' }, 400);
     }
+    const store = await resolveStore(c);
     try {
       const { screen, version } = await store.duplicateScreen(sourceId, name);
       return c.json({ ...screen, version }, 201);
@@ -181,6 +190,7 @@ export function registerScreenRoutes(
   // Read a screen's INTENT.md (null when none authored yet).
   app.get('/screens/:id/intent', async (c) => {
     const id = c.req.param('id');
+    const store = await resolveStore(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
@@ -195,6 +205,7 @@ export function registerScreenRoutes(
     if (typeof intent !== 'string') {
       return c.json({ status: 'error', message: 'intent (string) is required' }, 400);
     }
+    const store = await resolveStore(c);
     try {
       await store.setIntent(id, intent);
       return c.json({ intent });
@@ -213,6 +224,7 @@ export function registerScreenRoutes(
     if (!Number.isInteger(version) || version < 1) {
       return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
     }
+    const store = await resolveStore(c);
     const spec = await store.getVersion(id, version);
     if (!spec) {
       return c.json(
