@@ -6,7 +6,7 @@ import {
   listComments,
   type Db,
 } from '@lighter/db';
-import { ingest, type InventoryModel } from '@lighter/ingestion';
+import { ingest, ingestArtifacts, type InventoryModel } from '@lighter/ingestion';
 import { toJsonRender, type Spec } from '@lighter/spec';
 import {
   generateSpec,
@@ -296,12 +296,42 @@ export function createApp(deps: AppDeps): Hono {
     registerWebhookRoutes(app, deps.db, deps.designSystem);
   }
 
-  // Project bearer-auth surface (#87). Mounted only when auth is configured, so existing single-tenant
-  // deployments and every existing test are unaffected. `GET /projects/me` is the CLI's `whoami`.
+  // Project bearer-auth surface (#87, #90). Mounted only when auth is configured, so existing
+  // single-tenant deployments and every existing test are unaffected.
   if (deps.auth) {
-    app.get('/projects/me', requireProject(deps.auth), (c) => {
+    const guard = requireProject(deps.auth);
+
+    // The CLI's `whoami`.
+    app.get('/projects/me', guard, (c) => {
       const project = c.get('project');
       return c.json({ id: project.id, name: project.name });
+    });
+
+    // Cloud push ingest (#90): the CLI / GitHub Action sends the built artifacts `{catalog, tokens}`
+    // inline — the API never reads the client's filesystem (that's the on-disk-only `POST /ingest`).
+    // The inventory is scoped to the project the bearer token belongs to.
+    app.post('/inventory', guard, async (c) => {
+      const project = c.get('project');
+      const body = (await c.req.json().catch(() => null)) as {
+        catalog?: unknown;
+        tokens?: unknown;
+      } | null;
+      if (!body || typeof body !== 'object') {
+        return c.json({ status: 'error', message: 'body { catalog, tokens } is required' }, 400);
+      }
+      let model: InventoryModel;
+      try {
+        model = ingestArtifacts(body.catalog, body.tokens);
+      } catch (err) {
+        // A schema violation (ZodError carries `.issues`) is client input, not a server fault.
+        const issues = (err as { issues?: unknown }).issues;
+        return c.json(
+          { status: 'error', message: 'invalid catalog or tokens', ...(issues ? { issues } : {}) },
+          400,
+        );
+      }
+      await saveInventory(deps.db, model, project.id);
+      return c.json({ status: 'ok', model }, 201);
     });
   }
 

@@ -26,6 +26,8 @@ export const inventorySnapshots = sqliteTable('inventory_snapshots', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** JSON-serialized InventoryModel (opaque to the DB layer). */
   model: text('model').notNull(),
+  /** Owning project (#90); NULL is the legacy/global partition (on-disk ingest + single-tenant view). */
+  projectId: text('project_id'),
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),

@@ -37,17 +37,12 @@ function parseArtifact<S extends z.ZodTypeAny>(path: string, schema: S): z.infer
 }
 
 /**
- * Ingest a design-system repo into the normalized inventory model. Pure over the repo's artifacts:
- * it only reads `<repo>/<artifactDir>/{tokens.json,catalog.json}` from disk — no database, no
- * network — so the same repo at the same commit always yields the same model. Results are sorted by
- * name for stable, diffable output.
+ * Build the normalized inventory model from already-parsed artifacts. Pure: no disk, no DB, no
+ * network — the same inputs always yield the same model, sorted by name for stable, diffable output.
+ * This is the shared core behind both `ingest` (reads from disk) and `ingestArtifacts` (reads from a
+ * request body), so the on-disk and pushed paths can never diverge.
  */
-export function ingest(repoPath: string, opts: IngestOptions = {}): InventoryModel {
-  const dir = opts.artifactDir ?? 'dist';
-
-  const tokensMap = parseArtifact(join(repoPath, dir, 'tokens.json'), TokensArtifact);
-  const catalog = parseArtifact(join(repoPath, dir, 'catalog.json'), CatalogArtifact);
-
+export function buildInventory(catalog: CatalogArtifact, tokensMap: TokensArtifact): InventoryModel {
   const tokens: InventoryToken[] = Object.entries(tokensMap)
     .map(([name, value]) => ({ name, value, category: name.split('.')[0] ?? name }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -64,4 +59,29 @@ export function ingest(repoPath: string, opts: IngestOptions = {}): InventoryMod
   const health = computeHealth(catalog, tokens);
 
   return { components, tokens, health };
+}
+
+/**
+ * Ingest a design system from artifacts supplied in-memory (the cloud push path, #90): the CLI /
+ * GitHub Action sends `{ catalog, tokens }` as a request body instead of the API reading a path off
+ * its own filesystem. Validates both against the artifact schemas (a `ZodError` on malformed input,
+ * which the route maps to a 400) and reuses `buildInventory`, so pushed and on-disk ingestion are
+ * identical downstream.
+ */
+export function ingestArtifacts(catalog: unknown, tokens: unknown): InventoryModel {
+  const parsedTokens = TokensArtifact.parse(tokens);
+  const parsedCatalog = CatalogArtifact.parse(catalog);
+  return buildInventory(parsedCatalog, parsedTokens);
+}
+
+/**
+ * Ingest a design-system repo into the normalized inventory model. Pure over the repo's artifacts:
+ * it only reads `<repo>/<artifactDir>/{tokens.json,catalog.json}` from disk — no database, no
+ * network — so the same repo at the same commit always yields the same model.
+ */
+export function ingest(repoPath: string, opts: IngestOptions = {}): InventoryModel {
+  const dir = opts.artifactDir ?? 'dist';
+  const tokensMap = parseArtifact(join(repoPath, dir, 'tokens.json'), TokensArtifact);
+  const catalog = parseArtifact(join(repoPath, dir, 'catalog.json'), CatalogArtifact);
+  return buildInventory(catalog, tokensMap);
 }
