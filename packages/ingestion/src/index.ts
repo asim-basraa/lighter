@@ -1,4 +1,4 @@
-export { ingest, type IngestOptions } from './ingest.js';
+export { ingest, ingestArtifacts, buildInventory, type IngestOptions } from './ingest.js';
 export { computeHealth } from './health.js';
 export type {
   InventoryModel,
