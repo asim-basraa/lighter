@@ -46,7 +46,22 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
         404,
       );
     }
-    const { token } = await createShare(db, id, version);
+    // Optional expiry (#34): body `expiresInSeconds` → an absolute expiry timestamp. Omitted → no
+    // expiry. Re-deploying updates it (createShare re-sets expiresAt on the stable token).
+    const body = (await c.req.json().catch(() => null)) as { expiresInSeconds?: unknown } | null;
+    const ttl = body?.expiresInSeconds;
+    let expiresAt: string | null = null;
+    if (ttl !== undefined && ttl !== null) {
+      if (typeof ttl !== 'number' || !Number.isFinite(ttl)) {
+        return c.json({ status: 'error', message: 'expiresInSeconds must be a number' }, 400);
+      }
+      const at = new Date(Date.now() + ttl * 1000);
+      if (Number.isNaN(at.getTime())) {
+        return c.json({ status: 'error', message: 'expiresInSeconds is out of range' }, 400);
+      }
+      expiresAt = at.toISOString();
+    }
+    const { token } = await createShare(db, id, version, expiresAt);
     // Deploying advances the approval lifecycle draft → shared (#25). Only from draft, so a re-deploy
     // never resets a version that's already shared / changes-requested / approved.
     const stored = await getVersionState(db, id, version);
@@ -54,7 +69,7 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
     if (current === DEFAULT_STATE) {
       await setVersionState(db, id, version, 'shared');
     }
-    return c.json({ token }, 201);
+    return c.json({ token, expiresAt }, 201);
   });
 
   // Resolve a share token to the version it points at and return the spec to render. No auth: the

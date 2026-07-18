@@ -42,6 +42,8 @@ export const shares = sqliteTable('shares', {
   token: text('token').primaryKey(),
   screenId: text('screen_id').notNull(),
   version: integer('version').notNull(),
+  /** Optional expiry (ISO timestamp); NULL never expires. A past value is refused at resolve (#34). */
+  expiresAt: text('expires_at'),
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),

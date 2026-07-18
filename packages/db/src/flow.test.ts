@@ -49,4 +49,18 @@ describe('latestShareForScreen', () => {
     await createShare(db, 'confirm', 2);
     expect(await latestShareForScreen(db, 'confirm')).toBe(v3.token);
   });
+
+  it('skips an expired latest version and returns the highest LIVE one (#34)', async () => {
+    const db = freshDb();
+    const v1 = await createShare(db, 'confirm', 1); // no expiry — live
+    await createShare(db, 'confirm', 2, '2000-01-01T00:00:00.000Z'); // expired
+    // The newest deployed (v2) is expired, so a flow link lands on the live v1.
+    expect(await latestShareForScreen(db, 'confirm')).toBe(v1.token);
+  });
+
+  it('returns null when every deployed version is expired', async () => {
+    const db = freshDb();
+    await createShare(db, 'confirm', 1, '2000-01-01T00:00:00.000Z');
+    expect(await latestShareForScreen(db, 'confirm')).toBeNull();
+  });
 });
