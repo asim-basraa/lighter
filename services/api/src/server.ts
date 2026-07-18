@@ -21,7 +21,16 @@ const notifier = process.env.NOTIFY_WEBHOOK_URL
   ? new WebhookNotifier(process.env.NOTIFY_WEBHOOK_URL)
   : undefined;
 
-const app = createApp({ db, specStore, specGenerator, notifier });
+// The design-system re-ingest webhook is enabled when DESIGN_SYSTEM_REPO is configured (#36).
+const designSystem = process.env.DESIGN_SYSTEM_REPO
+  ? {
+      repoPath: process.env.DESIGN_SYSTEM_REPO,
+      artifactDir: process.env.DESIGN_SYSTEM_ARTIFACT_DIR,
+      webhookSecret: process.env.WEBHOOK_SECRET,
+    }
+  : undefined;
+
+const app = createApp({ db, specStore, specGenerator, notifier, designSystem });
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port }, (info) => {
