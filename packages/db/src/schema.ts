@@ -143,3 +143,36 @@ export const ingestedCommits = sqliteTable('ingested_commits', {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });
+
+/**
+ * A tenant in the multi-project cloud (#87). Every screen/inventory/review record will be scoped to
+ * a project; this table plus `projectTokens` is the machine-auth (CLI / GitHub Action) foundation.
+ */
+export const projects = sqliteTable('projects', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type ProjectRow = typeof projects.$inferSelect;
+
+/**
+ * A machine API token for a project (#87). Only the HMAC hash of the raw token is stored, so a DB
+ * leak never yields a usable credential. The raw token is shown once at mint time. Human/studio
+ * login is Supabase Auth (#91), not these tokens.
+ */
+export const projectTokens = sqliteTable('project_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  label: text('label'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  lastUsedAt: text('last_used_at'),
+});
+
+export type ProjectTokenRow = typeof projectTokens.$inferSelect;

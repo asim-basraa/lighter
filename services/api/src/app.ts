@@ -25,6 +25,7 @@ import { registerApprovalRoutes } from './approval.js';
 import { registerFlowRoutes } from './flow.js';
 import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
+import { requireProject, type AuthConfig } from './auth.js';
 import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
@@ -37,6 +38,8 @@ export interface AppDeps {
   notifier?: Notifier;
   /** Design-system repo config for the re-ingest webhook (#36). When present, the webhook is mounted. */
   designSystem?: DesignSystemConfig;
+  /** Project bearer-auth config (#87). When present, the project-scoped routes (e.g. /projects/me) mount. */
+  auth?: AuthConfig;
 }
 
 /**
@@ -291,6 +294,15 @@ export function createApp(deps: AppDeps): Hono {
   // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.
   if (deps.designSystem) {
     registerWebhookRoutes(app, deps.db, deps.designSystem);
+  }
+
+  // Project bearer-auth surface (#87). Mounted only when auth is configured, so existing single-tenant
+  // deployments and every existing test are unaffected. `GET /projects/me` is the CLI's `whoami`.
+  if (deps.auth) {
+    app.get('/projects/me', requireProject(deps.auth), (c) => {
+      const project = c.get('project');
+      return c.json({ id: project.id, name: project.name });
+    });
   }
 
   return app;

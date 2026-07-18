@@ -10,6 +10,7 @@ handoff bundle.
 
 ## Documentation
 
+- **[Building a New App on Lighter](docs/BUILDING_ON_LIGHTER.md)** — start a product from scratch: the compatibility protocol, the rapid design loop, and how to structure app logic so it never breaks Lighter.
 - **[User Guide](docs/USER_GUIDE.md)** — the full pipeline (ingest → author → deploy → review → hand off) with runnable commands.
 - **[Developer Guide](docs/DEVELOPMENT.md)** — architecture, setup, the dev loop, conventions, and how to consume Lighter.
 - **[API Reference](docs/API.md)** — every HTTP endpoint.

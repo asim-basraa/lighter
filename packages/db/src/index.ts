@@ -4,6 +4,17 @@ export { runMigrations, migrationsDir } from './migrate.js';
 export { insertHealthCheck, listHealthChecks } from './health.js';
 export { saveInventory, latestInventory } from './inventory.js';
 export { wasCommitIngested, recordIngestedCommit } from './ingestLog.js';
+export {
+  createProject,
+  getProject,
+  listProjects,
+  mintToken,
+  resolveProjectByToken,
+  revokeToken,
+  hashToken,
+  type Project,
+  type MintedToken,
+} from './projects.js';
 export { createShare, resolveShare, latestShareForScreen } from './shares.js';
 export type { Share, ShareTarget, ResolvedShare } from './shares.js';
 export { getFlow, setFlow, type FlowLinkInput } from './flow.js';
@@ -27,5 +38,13 @@ export {
   signOffs,
   flowLinks,
   ingestedCommits,
+  projects,
+  projectTokens,
 } from './schema.js';
-export type { HealthCheck, NewHealthCheck, InventorySnapshot } from './schema.js';
+export type {
+  HealthCheck,
+  NewHealthCheck,
+  InventorySnapshot,
+  ProjectRow,
+  ProjectTokenRow,
+} from './schema.js';
