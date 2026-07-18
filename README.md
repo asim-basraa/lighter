@@ -19,9 +19,26 @@ The **entire backlog is shipped** — see [HANDOFF.md](docs/HANDOFF.md) for the 
 
 ## Repository layout
 
-- `packages/*` — shared libraries (db, ingestion, spec model, catalog)
-- `services/*` — the backend service and web client
-- `../lighter-example` — the example design system, a separate repo that doubles as the test fixture
+- `packages/*` — shared libraries (db, ingestion, spec model, catalog) **and `@lighter/design-system`**,
+  a comprehensive, DTCG-token-driven React component library that ships the json-render registry and
+  the `dist/catalog.json` + `dist/tokens.json` artifacts Lighter ingests
+- `services/*` — the backend service (`@lighter/api`) and internal/review web client (`@lighter/web`)
+- `apps/*` — **`@lighter/starter`**, a Next.js bootstrap app wired to the design system out of the box;
+  the recommended starting point for a consumer (clone, swap DTCG tokens, ship)
+- `../lighter-example` — a second example design system, a separate repo that doubles as the test fixture
+
+## Start here (consumers)
+
+Want your own design system + prototyping stack? Start from `apps/starter`:
+
+```bash
+pnpm install
+pnpm --filter @lighter/design-system build   # emits dist/catalog.json + dist/tokens.json
+pnpm --filter @lighter/starter dev            # http://localhost:4100
+```
+
+Then edit the DTCG tokens in `packages/design-system/tokens/*.tokens.json` — the whole system
+re-themes with no component changes. See [apps/starter/README.md](apps/starter/README.md).
 
 ## Persistence
 

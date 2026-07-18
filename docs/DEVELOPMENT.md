@@ -40,6 +40,26 @@ author screen ─► internal Spec (nested tree) ─► SpecStore (one git-commi
 | `@lighter/api` | A [Hono](https://hono.dev) app built by `createApp(deps)`. Owns the git-backed `SpecStore`, all routes, and the injectable boundaries (`specGenerator`, `notifier`, `designSystem`). A factory (not a singleton) so tests drive it via `app.request()` over an in-memory DB + temp store. |
 | `@lighter/web` | A Next.js 14 (App Router) app: the internal dashboard (`(dashboard)` route group) and the **public review surface** (`/share/[token]`, on the bare root layout, no internal nav). Renders specs live via the design system's `<SpecView>`.                                                |
 
+### First-party design system + starter (`packages/design-system`, `apps/*`)
+
+Lighter ships a reference design system and a bootstrap app so a consumer can start with a working,
+correct-by-construction stack instead of building one from scratch.
+
+| Workspace                           | Responsibility                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@lighter/design-system`            | A comprehensive, **DTCG-token-driven** React component library (layout, typography, forms, data-display, feedback, overlays, navigation, tables, 59 icons). It also ships the **json-render registry** (`<SpecView>`) and, at build, the `dist/catalog.json` + `dist/tokens.json` artifacts Lighter ingests. **Swap the DTCG tokens (`tokens/*.tokens.json`) and everything re-themes** — zero runtime. |
+| `@lighter/starter` (`apps/starter`) | A Next.js 14 App Router app wired to the design system out of the box: `<ThemeProvider>`, the stylesheet, a component showcase, a json-render editor (`toJsonRender` → `<SpecView>`), and a sample dashboard. The **starting point for a consumer** — clone, edit tokens, ship.                                                                                                                         |
+
+The design system is the reference producer of Lighter's ingestion contract: `pnpm --filter
+@lighter/design-system build` emits `dist/catalog.json` (24 catalog components) and
+`dist/tokens.json` (388 tokens), which `POST /ingest` (or `ingest()`) turns into an inventory with
+0 health findings. It's the in-repo twin of `../lighter-example`.
+
+> **DTCG in one line:** tokens are authored in the [Design Tokens Community Group](https://tr.designtokens.org)
+> format (`$type`/`$value`/`$description`, groups, `{alias}` references, composite types). The build
+> resolves them to flat CSS custom properties (`--primary-default`, `--spacing-4`, …); components only
+> ever read those vars, so re-theming never touches component code.
+
 ### Key design decisions
 
 - **The internal spec is thin and framework-agnostic.** json-render is one serialization target behind a single module, leaving room to emit another format later without touching stored specs.
@@ -162,4 +182,9 @@ is the merge gate.
   (catalog-constrained generation over your own `LlmClient`), `@lighter/db` (the schema + helpers).
 - **Bring your own design system:** anything that emits `dist/catalog.json`
   (`{components: {name: {description, props: <JSON Schema>}}}` + previews + used tokens) and
-  `dist/tokens.json` can be ingested — `lighter-example` is the reference producer.
+  `dist/tokens.json` can be ingested — `lighter-example` and `@lighter/design-system` are the two
+  reference producers.
+- **Or start from the first-party stack:** clone `apps/starter` (a Next.js app already wired to
+  `@lighter/design-system`), swap the DTCG tokens in `packages/design-system/tokens/*.tokens.json`
+  to get your own design system, and `pnpm --filter @lighter/design-system build` to produce the
+  artifacts Lighter ingests. See [`apps/starter/README.md`](../apps/starter/README.md).
