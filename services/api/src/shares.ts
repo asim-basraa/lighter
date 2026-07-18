@@ -55,7 +55,11 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
       if (typeof ttl !== 'number' || !Number.isFinite(ttl)) {
         return c.json({ status: 'error', message: 'expiresInSeconds must be a number' }, 400);
       }
-      expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+      const at = new Date(Date.now() + ttl * 1000);
+      if (Number.isNaN(at.getTime())) {
+        return c.json({ status: 'error', message: 'expiresInSeconds is out of range' }, 400);
+      }
+      expiresAt = at.toISOString();
     }
     const { token } = await createShare(db, id, version, expiresAt);
     // Deploying advances the approval lifecycle draft → shared (#25). Only from draft, so a re-deploy

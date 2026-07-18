@@ -64,22 +64,33 @@ export async function resolveShare(
 ): Promise<ResolvedShare | null> {
   const [row] = await db.select().from(shares).where(eq(shares.token, token)).limit(1);
   if (!row) return null;
-  if (row.expiresAt !== null && new Date(row.expiresAt).getTime() <= now.getTime()) return null;
+  if (row.expiresAt !== null) {
+    const at = new Date(row.expiresAt).getTime();
+    // Fail closed: a malformed (NaN) or past expiry is refused, never treated as non-expiring.
+    if (Number.isNaN(at) || at <= now.getTime()) return null;
+  }
   return { screenId: row.screenId, version: row.version, createdAt: row.createdAt };
 }
 
 /**
- * The share token for a screen's highest-versioned deployed version, or null if none is deployed —
- * so a flow link (#30) lands on the newest available mock of its target screen. Only rows in `shares`
- * (i.e. actually-deployed versions) are considered, so this never returns a token for an undeployed
- * version.
+ * The share token for a screen's highest-versioned deployed version that is still LIVE (not expired),
+ * or null if none — so a flow link (#30) lands on a real, viewable mock rather than a link that dead-
+ * ends in a 404. Only rows in `shares` (deployed versions) are considered; expired ones are skipped.
  */
-export async function latestShareForScreen(db: Db, screenId: string): Promise<string | null> {
-  const [row] = await db
+export async function latestShareForScreen(
+  db: Db,
+  screenId: string,
+  now: Date = new Date(),
+): Promise<string | null> {
+  const rows = await db
     .select()
     .from(shares)
     .where(eq(shares.screenId, screenId))
-    .orderBy(desc(shares.version))
-    .limit(1);
-  return row ? row.token : null;
+    .orderBy(desc(shares.version));
+  for (const row of rows) {
+    if (row.expiresAt === null) return row.token;
+    const at = new Date(row.expiresAt).getTime();
+    if (!Number.isNaN(at) && at > now.getTime()) return row.token;
+  }
+  return null;
 }

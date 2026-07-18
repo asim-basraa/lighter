@@ -138,15 +138,17 @@ describe('tokenized share URL (#21)', () => {
     expect((await app.request(`/share/${expiredBody.token}`)).status).toBe(404);
   });
 
-  it('400s a non-numeric expiresInSeconds', async () => {
+  it('400s a non-numeric or out-of-range expiresInSeconds', async () => {
     const app = await testApp();
     await seedScreen(app);
-    const res = await app.request('/screens/checkout/versions/1/share', {
-      method: 'POST',
-      body: JSON.stringify({ expiresInSeconds: 'soon' }),
-      headers: { 'content-type': 'application/json' },
-    });
-    expect(res.status).toBe(400);
+    const deploy = (expiresInSeconds: unknown) =>
+      app.request('/screens/checkout/versions/1/share', {
+        method: 'POST',
+        body: JSON.stringify({ expiresInSeconds }),
+        headers: { 'content-type': 'application/json' },
+      });
+    expect((await deploy('soon')).status).toBe(400);
+    expect((await deploy(1e16)).status).toBe(400); // overflows the max Date → 400, not a 500
   });
 
   it('404s a token whose version has since gone (never dangles)', async () => {
