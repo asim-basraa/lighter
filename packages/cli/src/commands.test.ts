@@ -87,4 +87,58 @@ describe('CLI commands (#92, #94)', () => {
     );
     await expect(commands.whoami(ctx(client))).rejects.toThrow(/401/);
   });
+
+  it('screen create --shell creates the screen and saves a PageShell v1', async () => {
+    let shellBody: { spec?: { root?: { type?: string } } } = {};
+    const client = new LighterClient(
+      { url: 'http://x', token: 't' },
+      fakeFetch((url, init) => {
+        if (url.endsWith('/screens') && init?.method === 'POST') {
+          return { status: 201, body: { id: 'home', name: 'Home' } };
+        }
+        if (url.endsWith('/screens/home/versions')) {
+          shellBody = JSON.parse((init?.body as string) ?? '{}');
+          return { status: 201, body: { version: 1 } };
+        }
+        return { body: {} };
+      }),
+    );
+    const out = await commands.screen(ctx(client, '.', ['create', 'Home', '--shell']));
+    expect(out).toBe('created screen home with a shell page (v1)');
+    expect(shellBody.spec?.root?.type).toBe('PageShell');
+  });
+
+  it('generate --screen saves the generated spec as a screen', async () => {
+    const client = new LighterClient(
+      { url: 'http://x', token: 't' },
+      fakeFetch((url, init) => {
+        if (url.endsWith('/generate')) {
+          return { body: { spec: { root: { type: 'PageShell', props: {}, children: [] } }, attempts: 1 } };
+        }
+        if (url.endsWith('/screens') && init?.method === 'POST') {
+          return { status: 201, body: { id: 'home', name: 'Home' } };
+        }
+        if (url.endsWith('/screens/home/versions')) return { status: 201, body: { version: 1 } };
+        return { body: {} };
+      }),
+    );
+    const out = await commands.generate(ctx(client, '.', ['a home screen', '--screen', 'Home']));
+    expect(out).toBe('generated and saved screen home (v1)');
+  });
+
+  it('deploy resolves the latest version and prints the review URL', async () => {
+    const client = new LighterClient(
+      { url: 'http://x', token: 't' },
+      fakeFetch((url, init) => {
+        if (url.endsWith('/screens/checkout') && (init?.method ?? 'GET') === 'GET') {
+          return { body: { id: 'checkout', name: 'Checkout', versions: [1, 2] } };
+        }
+        if (url.endsWith('/screens/checkout/versions/2/share')) {
+          return { status: 201, body: { token: 'abc123', expiresAt: null } };
+        }
+        return { body: {} };
+      }),
+    );
+    expect(await commands.deploy(ctx(client, '.', ['checkout']))).toBe('http://x/share/abc123');
+  });
 });
