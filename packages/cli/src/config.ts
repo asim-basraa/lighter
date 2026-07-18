@@ -30,6 +30,7 @@ const VALUE_FLAGS = new Set([
   '--version',
   '--expires',
   '--screen',
+  '--tokens-dtcg',
 ]);
 
 /** Split argv into positional args and flags. `--value-flag x` consumes `x`; other `--flags` are booleans. */

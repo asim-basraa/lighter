@@ -1,0 +1,5 @@
+{
+  "$comment": "Copy to lighter.config.json and set your endpoint. Precedence: flags > env (LIGHTER_URL / LIGHTER_TOKEN) > this file. The token is a project API token minted by the cloud; keep real tokens out of source control (prefer LIGHTER_TOKEN in the environment).",
+  "url": "https://lighter.example.com",
+  "token": ""
+}

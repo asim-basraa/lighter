@@ -38,3 +38,25 @@ The design system emits `dist/catalog.json` + `dist/tokens.json` (run
 `artifactDir: "dist"`). From there: generate screens from intent, deploy to review links, collect
 comments/approvals, and export a handoff bundle — all rendering through **this** design system. See
 the repo [User Guide](../../docs/USER_GUIDE.md).
+
+## Connect to the cloud with the CLI (standard interfaces)
+
+Lighter is cloud-first: use the `lighter` CLI against a hosted endpoint (no local server). Copy
+`lighter.config.json.example` → `lighter.config.json` and set your endpoint (or use `LIGHTER_URL` /
+`LIGHTER_TOKEN`), then:
+
+```bash
+pnpm --filter @lighter/design-system build     # emit dist/{catalog,tokens}.json
+lighter sync                                    # push the catalog + tokens to the cloud
+#   tokens can come straight from DTCG instead of a built file:
+lighter sync --tokens-dtcg tokens.dtcg.json
+
+lighter screen create checkout --shell          # scaffold a PageShell screen
+lighter generate "an order-confirmed screen" --screen checkout
+lighter deploy checkout                         # → prints the review URL
+```
+
+**Standard interfaces:** the catalog is *derived* — from Storybook CSF `argTypes`, `cva` variants
+(`@lighter/ingest-storybook` → `buildCatalogFromCva`), and react-docgen — and tokens from **DTCG**
+(`@lighter/dtcg`). Nothing here is authored in a Lighter-specific format. Bringing a **shadcn/ui**
+design system? See the [Adoption guide](../../docs/ADOPTION.md).
