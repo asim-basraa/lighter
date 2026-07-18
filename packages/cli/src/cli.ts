@@ -13,7 +13,7 @@ Config precedence: flags › env (LIGHTER_URL / LIGHTER_TOKEN) › lighter.confi
 Commands:
   whoami                        Show the authenticated project
   inventory                     Show the project's latest pushed inventory
-  sync [--dir dist]             Push built {catalog,tokens}.json to the cloud
+  sync [--dir dist] [--tokens-dtcg <file>]  Push {catalog,tokens} (tokens from a DTCG file if given)
   screen create <name> [--shell]  Create a screen (--shell scaffolds a PageShell v1)
   generate "<intent>" [--screen <name>]  Generate a spec; --screen saves it as a screen
   deploy <screen> [--version N] [--expires <s>]  Deploy a version; prints its review URL

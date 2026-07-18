@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { dtcgToTokens, type DtcgDoc } from '@lighter/dtcg';
 import { LighterClient } from './client.js';
 import { flagValue, parseArgs } from './config.js';
 
@@ -30,9 +31,23 @@ export async function inventory(ctx: CommandContext): Promise<string> {
 export async function sync(ctx: CommandContext): Promise<string> {
   const dir = flagValue(ctx.argv, '--dir') ?? 'dist';
   const catalog = readArtifact(ctx.cwd, dir, 'catalog.json');
-  const tokens = readArtifact(ctx.cwd, dir, 'tokens.json');
+  // Tokens come from either a built tokens.json or, with --tokens-dtcg, a DTCG source resolved on the
+  // fly (the standard token pipeline — Style Dictionary / Tokens Studio export).
+  const dtcgFile = flagValue(ctx.argv, '--tokens-dtcg');
+  const tokens = dtcgFile
+    ? dtcgToTokens(readJsonFile(ctx.cwd, dtcgFile) as DtcgDoc)
+    : readArtifact(ctx.cwd, dir, 'tokens.json');
   const { model } = await ctx.client.pushInventory(catalog, tokens);
   return `synced ${model.components.length} components, ${model.tokens.length} tokens`;
+}
+
+function readJsonFile(cwd: string, file: string): unknown {
+  const path = join(cwd, file);
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (err) {
+    throw new Error(`could not read ${file}: ${(err as Error).message}`);
+  }
 }
 
 function readArtifact(cwd: string, dir: string, file: string): unknown {

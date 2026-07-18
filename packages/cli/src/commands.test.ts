@@ -141,4 +141,26 @@ describe('CLI commands (#92, #94)', () => {
     );
     expect(await commands.deploy(ctx(client, '.', ['checkout']))).toBe('http://x/share/abc123');
   });
+
+  it('sync --tokens-dtcg resolves DTCG tokens before pushing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lighter-cli-dtcg-'));
+    mkdirSync(join(dir, 'dist'));
+    writeFileSync(join(dir, 'dist', 'catalog.json'), JSON.stringify({ components: {} }));
+    writeFileSync(
+      join(dir, 'tokens.dtcg.json'),
+      JSON.stringify({ color: { primary: { $value: '#2563eb' } } }),
+    );
+    let postedTokens: Record<string, string> = {};
+    const client = new LighterClient(
+      { url: 'http://x', token: 't' },
+      fakeFetch((_url, init) => {
+        postedTokens = (JSON.parse((init?.body as string) ?? '{}') as { tokens: Record<string, string> }).tokens;
+        return { status: 201, body: { status: 'ok', model: { components: [], tokens: [{ name: 'color.primary' }] } } };
+      }),
+    );
+    const out = await commands.sync(ctx(client, dir, ['--tokens-dtcg', 'tokens.dtcg.json']));
+    expect(out).toBe('synced 0 components, 1 tokens');
+    expect(postedTokens['color.primary']).toBe('#2563eb');
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
