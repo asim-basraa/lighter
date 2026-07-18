@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SpecSchema,
   componentTypesOf,
+  staleComponents,
   toJsonRender,
   fromJsonRender,
   isValidJsonRender,
@@ -192,5 +193,17 @@ describe('json-render isolation (AC3)', () => {
 describe('componentTypesOf', () => {
   it('collects distinct component types in first-seen order', () => {
     expect(componentTypesOf(spec)).toEqual(['PageShell', 'Stack', 'Text', 'Card', 'Button']);
+  });
+});
+
+describe('staleComponents (#37)', () => {
+  it('flags referenced components missing from the catalog (removed/renamed)', () => {
+    const known = ['PageShell', 'Stack', 'Text', 'Card']; // Button removed/renamed
+    expect(staleComponents(spec, known)).toEqual(['Button']);
+  });
+
+  it('is empty when every referenced component still exists (spec stays valid)', () => {
+    const known = new Set(['PageShell', 'Stack', 'Text', 'Card', 'Button']);
+    expect(staleComponents(spec, known)).toEqual([]);
   });
 });

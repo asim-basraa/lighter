@@ -4,6 +4,7 @@ import {
   SpecSchema,
   validateAgainstCatalog,
   componentTypesOf,
+  staleComponents,
   type Catalog,
   type Spec,
 } from '@lighter/spec';
@@ -55,17 +56,32 @@ export function registerScreenRoutes(
   // Derived usage records — one per screen's LATEST version — for the dashboard's blast-radius view:
   // { screen (name), version (`v{n}`), components (referenced types) }. Screens with no version are
   // omitted. This is the current blast radius (what today's designs use), not full history.
+  //
+  // Each record also carries staleness (#37): components the spec references that no longer exist in
+  // the current catalog (removed/renamed) — `stale` + the offending `staleComponents`. When no
+  // catalog is ingested we can't judge, so specs are reported not-stale.
   app.get('/specs', async (c) => {
-    const records: { screen: string; version: string; components: string[] }[] = [];
+    const catalog = await loadCatalog();
+    const known = catalog ? new Set(Object.keys(catalog)) : null;
+    const records: {
+      screen: string;
+      version: string;
+      components: string[];
+      stale: boolean;
+      staleComponents: string[];
+    }[] = [];
     for (const screen of await store.listScreens()) {
       const latest = (await store.listVersions(screen.id)).at(-1);
       if (latest === undefined) continue;
       const spec = await store.getVersion(screen.id, latest);
       if (!spec) continue;
+      const missing = known ? staleComponents(spec, known) : [];
       records.push({
         screen: screen.name,
         version: `v${latest}`,
         components: componentTypesOf(spec),
+        stale: missing.length > 0,
+        staleComponents: missing,
       });
     }
     return c.json(records);

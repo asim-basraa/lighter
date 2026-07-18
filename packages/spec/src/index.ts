@@ -1,4 +1,11 @@
-export { type Spec, type SpecNode, SpecSchema, SpecNodeSchema, componentTypesOf } from './spec.js';
+export {
+  type Spec,
+  type SpecNode,
+  SpecSchema,
+  SpecNodeSchema,
+  componentTypesOf,
+  staleComponents,
+} from './spec.js';
 export {
   toJsonRender,
   fromJsonRender,

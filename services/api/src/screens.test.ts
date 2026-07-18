@@ -342,7 +342,48 @@ describe('GET /specs — derived usage records', () => {
       components: string[];
     }[];
     expect(records).toEqual([
-      { screen: 'Checkout', version: 'v2', components: ['PageShell', 'Button'] },
+      {
+        screen: 'Checkout',
+        version: 'v2',
+        components: ['PageShell', 'Button'],
+        stale: false, // every component still exists in the ingested catalog
+        staleComponents: [],
+      },
+    ]);
+  });
+
+  it('flags a spec that references a component no longer in the catalog (#37)', async () => {
+    const app = await testApp();
+    await post(app, '/screens', { name: 'Checkout' });
+    await post(app, '/screens/checkout/versions', { spec }); // v1: valid against the catalog
+
+    // Simulate the catalog changing underneath a saved spec: write a later version that references a
+    // component the current catalog no longer has (bypassing save-time validation, as if it was
+    // valid when saved and the component was later removed/renamed).
+    writeFileSync(
+      join(root, 'checkout', '2.json'),
+      JSON.stringify({
+        root: {
+          type: 'PageShell',
+          props: { title: 'Checkout' },
+          children: [{ type: 'GhostWidget', props: {}, children: [] }],
+        },
+      }),
+    );
+
+    const records = (await (await app.request('/specs')).json()) as {
+      screen: string;
+      stale: boolean;
+      staleComponents: string[];
+    }[];
+    expect(records).toEqual([
+      {
+        screen: 'Checkout',
+        version: 'v2',
+        components: ['PageShell', 'GhostWidget'],
+        stale: true,
+        staleComponents: ['GhostWidget'],
+      },
     ]);
   });
 });
