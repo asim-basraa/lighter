@@ -1,0 +1,88 @@
+{
+  "$description": "Dark-theme overrides. Same semantic color keys as the light theme, re-pointed at darker primitives. Applied under :root[data-theme=\"dark\"] / .dark. Non-color semantics (radius, typography) are unchanged and inherited from the base.",
+  "background": {
+    "$type": "color",
+    "canvas": { "$value": "{color.neutral.950}" },
+    "subtle": { "$value": "{color.neutral.900}" },
+    "muted": { "$value": "{color.neutral.800}" },
+    "emphasis": { "$value": "{color.neutral.50}" },
+    "overlay": { "$value": "rgb(0 0 0 / 0.7)" }
+  },
+  "foreground": {
+    "$type": "color",
+    "default": { "$value": "{color.neutral.50}" },
+    "muted": { "$value": "{color.neutral.400}" },
+    "subtle": { "$value": "{color.neutral.500}" },
+    "onEmphasis": { "$value": "{color.neutral.900}" }
+  },
+  "border": {
+    "$type": "color",
+    "default": { "$value": "{color.neutral.800}" },
+    "strong": { "$value": "{color.neutral.700}" },
+    "subtle": { "$value": "{color.neutral.800}" }
+  },
+  "input": { "$type": "color", "border": { "$value": "{color.neutral.700}" } },
+  "ring": { "$type": "color", "default": { "$value": "{color.blue.500}" } },
+  "primary": {
+    "$type": "color",
+    "default": { "$value": "{color.blue.500}" },
+    "hover": { "$value": "{color.blue.400}" },
+    "active": { "$value": "{color.blue.300}" },
+    "subtle": { "$value": "{color.blue.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "secondary": {
+    "$type": "color",
+    "default": { "$value": "{color.neutral.800}" },
+    "hover": { "$value": "{color.neutral.700}" },
+    "active": { "$value": "{color.neutral.600}" },
+    "foreground": { "$value": "{color.neutral.50}" }
+  },
+  "accent": {
+    "$type": "color",
+    "default": { "$value": "{color.violet.500}" },
+    "hover": { "$value": "{color.violet.400}" },
+    "subtle": { "$value": "{color.violet.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "muted": {
+    "$type": "color",
+    "default": { "$value": "{color.neutral.800}" },
+    "foreground": { "$value": "{color.neutral.400}" }
+  },
+  "destructive": {
+    "$type": "color",
+    "default": { "$value": "{color.red.500}" },
+    "hover": { "$value": "{color.red.400}" },
+    "subtle": { "$value": "{color.red.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "success": {
+    "$type": "color",
+    "default": { "$value": "{color.green.500}" },
+    "subtle": { "$value": "{color.green.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "warning": {
+    "$type": "color",
+    "default": { "$value": "{color.amber.400}" },
+    "subtle": { "$value": "{color.amber.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "info": {
+    "$type": "color",
+    "default": { "$value": "{color.sky.400}" },
+    "subtle": { "$value": "{color.sky.950}" },
+    "foreground": { "$value": "{color.neutral.950}" }
+  },
+  "card": {
+    "$type": "color",
+    "background": { "$value": "{color.neutral.900}" },
+    "foreground": { "$value": "{color.neutral.50}" }
+  },
+  "popover": {
+    "$type": "color",
+    "background": { "$value": "{color.neutral.900}" },
+    "foreground": { "$value": "{color.neutral.50}" }
+  }
+}
