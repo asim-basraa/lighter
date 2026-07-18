@@ -21,14 +21,21 @@ const notifier = process.env.NOTIFY_WEBHOOK_URL
   ? new WebhookNotifier(process.env.NOTIFY_WEBHOOK_URL)
   : undefined;
 
-// The design-system re-ingest webhook is enabled when DESIGN_SYSTEM_REPO is configured (#36).
-const designSystem = process.env.DESIGN_SYSTEM_REPO
-  ? {
-      repoPath: process.env.DESIGN_SYSTEM_REPO,
-      artifactDir: process.env.DESIGN_SYSTEM_ARTIFACT_DIR,
-      webhookSecret: process.env.WEBHOOK_SECRET,
-    }
-  : undefined;
+// The design-system re-ingest webhook (#36) needs BOTH a repo and a secret — it's internet-facing, so
+// it's never served unauthenticated. A repo without a secret disables it (with a loud warning).
+const designSystem =
+  process.env.DESIGN_SYSTEM_REPO && process.env.WEBHOOK_SECRET
+    ? {
+        repoPath: process.env.DESIGN_SYSTEM_REPO,
+        artifactDir: process.env.DESIGN_SYSTEM_ARTIFACT_DIR,
+        webhookSecret: process.env.WEBHOOK_SECRET,
+      }
+    : undefined;
+if (process.env.DESIGN_SYSTEM_REPO && !process.env.WEBHOOK_SECRET) {
+  console.warn(
+    'DESIGN_SYSTEM_REPO is set but WEBHOOK_SECRET is not — the re-ingest webhook is DISABLED (it requires a secret).',
+  );
+}
 
 const app = createApp({ db, specStore, specGenerator, notifier, designSystem });
 const port = Number(process.env.PORT ?? 3000);
