@@ -23,6 +23,7 @@ import { registerShareRoutes } from './shares.js';
 import { registerCommentRoutes } from './comments.js';
 import { registerApprovalRoutes } from './approval.js';
 import { registerFlowRoutes } from './flow.js';
+import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
@@ -33,6 +34,8 @@ export interface AppDeps {
   specGenerator?: LlmClient;
   /** Notification sink for comment/approval events (#29). Optional — absent means no notifications. */
   notifier?: Notifier;
+  /** Design-system repo config for the re-ingest webhook (#36). When present, the webhook is mounted. */
+  designSystem?: DesignSystemConfig;
 }
 
 /**
@@ -281,6 +284,11 @@ export function createApp(deps: AppDeps): Hono {
     registerCommentRoutes(app, deps.db, deps.specStore, deps.notifier);
     registerApprovalRoutes(app, deps.db, deps.specStore, deps.notifier);
     registerFlowRoutes(app, deps.db, deps.specStore);
+  }
+
+  // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.
+  if (deps.designSystem) {
+    registerWebhookRoutes(app, deps.db, deps.designSystem);
   }
 
   return app;

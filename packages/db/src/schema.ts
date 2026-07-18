@@ -135,3 +135,11 @@ export const flowLinks = sqliteTable(
 );
 
 export type FlowLink = typeof flowLinks.$inferSelect;
+
+/** Idempotency ledger for the design-system push webhook (#36): one row per processed commit sha. */
+export const ingestedCommits = sqliteTable('ingested_commits', {
+  commitSha: text('commit_sha').primaryKey(),
+  ingestedAt: text('ingested_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
