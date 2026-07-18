@@ -28,15 +28,21 @@ function mintToken(): string {
 /**
  * Create (or reuse) a share link for a screen spec version. Idempotent per (screenId, version): a
  * version has at most one share, so re-deploying it returns the same stable token/URL. The unique
- * index on (screen_id, version) makes this race-safe — a concurrent insert is discarded, then the
- * canonical row is read back. Whether the version actually exists is the caller's concern (the API
- * checks the spec store before minting).
+ * index on (screen_id, version) makes this race-safe. `expiresAt` (an ISO timestamp, or null for no
+ * expiry) is (re)set on every deploy — so a re-deploy can set, change, or clear the expiry while
+ * keeping the same token. Whether the version actually exists is the caller's concern (the API checks
+ * the spec store before minting).
  */
-export async function createShare(db: Db, screenId: string, version: number): Promise<Share> {
+export async function createShare(
+  db: Db,
+  screenId: string,
+  version: number,
+  expiresAt: string | null = null,
+): Promise<Share> {
   await db
     .insert(shares)
-    .values({ token: mintToken(), screenId, version })
-    .onConflictDoNothing({ target: [shares.screenId, shares.version] });
+    .values({ token: mintToken(), screenId, version, expiresAt })
+    .onConflictDoUpdate({ target: [shares.screenId, shares.version], set: { expiresAt } });
   const [row] = await db
     .select()
     .from(shares)
@@ -46,10 +52,20 @@ export async function createShare(db: Db, screenId: string, version: number): Pr
   return { token: row.token, screenId: row.screenId, version: row.version };
 }
 
-/** Resolve a share token to its target version (with deploy time), or null if the token is unknown. */
-export async function resolveShare(db: Db, token: string): Promise<ResolvedShare | null> {
+/**
+ * Resolve a share token to its target version (with deploy time), or null if the token is unknown OR
+ * expired (#34). Expiry is checked against `now` (injectable for tests); a share whose `expiresAt` is
+ * at or before `now` is refused exactly like an unknown token, so an expired link can't be viewed.
+ */
+export async function resolveShare(
+  db: Db,
+  token: string,
+  now: Date = new Date(),
+): Promise<ResolvedShare | null> {
   const [row] = await db.select().from(shares).where(eq(shares.token, token)).limit(1);
-  return row ? { screenId: row.screenId, version: row.version, createdAt: row.createdAt } : null;
+  if (!row) return null;
+  if (row.expiresAt !== null && new Date(row.expiresAt).getTime() <= now.getTime()) return null;
+  return { screenId: row.screenId, version: row.version, createdAt: row.createdAt };
 }
 
 /**

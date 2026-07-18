@@ -116,6 +116,39 @@ describe('tokenized share URL (#21)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('deploys with an optional expiry and refuses an expired token (#34)', async () => {
+    const app = await testApp();
+    await seedScreen(app);
+    const deployWith = (expiresInSeconds: number) =>
+      app.request('/screens/checkout/versions/1/share', {
+        method: 'POST',
+        body: JSON.stringify({ expiresInSeconds }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+    // A future expiry is honoured — the mock is viewable and the response reports the expiry.
+    const live = await deployWith(3600);
+    const liveBody = (await live.json()) as { token: string; expiresAt: string };
+    expect(typeof liveBody.expiresAt).toBe('string');
+    expect((await app.request(`/share/${liveBody.token}`)).status).toBe(200);
+
+    // Re-deploy with an already-past expiry (same token) → the mock is refused.
+    const expired = await deployWith(-60);
+    const expiredBody = (await expired.json()) as { token: string };
+    expect((await app.request(`/share/${expiredBody.token}`)).status).toBe(404);
+  });
+
+  it('400s a non-numeric expiresInSeconds', async () => {
+    const app = await testApp();
+    await seedScreen(app);
+    const res = await app.request('/screens/checkout/versions/1/share', {
+      method: 'POST',
+      body: JSON.stringify({ expiresInSeconds: 'soon' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('404s a token whose version has since gone (never dangles)', async () => {
     const app = await testApp();
     await seedScreen(app);

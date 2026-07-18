@@ -42,4 +42,27 @@ describe('shares', () => {
     const db = freshDb();
     expect(await resolveShare(db, 'deadbeef'.repeat(4))).toBeNull();
   });
+
+  it('refuses a share whose expiry has passed (#34)', async () => {
+    const db = freshDb();
+    const past = await createShare(db, 'home', 1, '2000-01-01T00:00:00.000Z');
+    const future = await createShare(db, 'home', 2, '2999-01-01T00:00:00.000Z');
+    expect(await resolveShare(db, past.token)).toBeNull(); // expired → refused
+    expect(await resolveShare(db, future.token)).toMatchObject({ screenId: 'home', version: 2 });
+  });
+
+  it('checks expiry against an injectable now', async () => {
+    const db = freshDb();
+    const s = await createShare(db, 'home', 1, '2026-07-01T00:00:00.000Z');
+    expect(await resolveShare(db, s.token, new Date('2026-06-30T00:00:00Z'))).not.toBeNull();
+    expect(await resolveShare(db, s.token, new Date('2026-07-02T00:00:00Z'))).toBeNull();
+  });
+
+  it('re-deploying updates the expiry while keeping the same token', async () => {
+    const db = freshDb();
+    const first = await createShare(db, 'home', 1, '2000-01-01T00:00:00.000Z'); // expired
+    const again = await createShare(db, 'home', 1, '2999-01-01T00:00:00.000Z'); // extend
+    expect(again.token).toBe(first.token);
+    expect(await resolveShare(db, again.token)).toMatchObject({ version: 1 });
+  });
 });
