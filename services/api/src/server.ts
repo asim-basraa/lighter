@@ -2,16 +2,16 @@ import { serve } from '@hono/node-server';
 import { createClient, configFromEnv, runMigrations } from '@lighter/db';
 import { AnthropicLlmClient } from '@lighter/generation';
 import { createApp } from './app.js';
-import { SpecStore } from './specStore.js';
+import { ProjectStores } from './projectStores.js';
 import { WebhookNotifier } from './notifier.js';
 
 /* c8 ignore start -- process entrypoint, behavior covered via createApp in app.test.ts */
 const { sqlite, db } = createClient(configFromEnv());
 runMigrations(sqlite);
 
-// Screens + spec versions live in a git repo at SPECS_DIR (default ./.lighter-specs).
-const specStore = new SpecStore(process.env.SPECS_DIR ?? '.lighter-specs');
-await specStore.init();
+// Multi-tenant: each project's screens + spec versions live in their own git repo under
+// SPECS_DIR/<projectId> (default ./.lighter-specs). Stores initialize lazily per project on first use.
+const storeProvider = new ProjectStores(process.env.SPECS_DIR ?? '.lighter-specs');
 
 // Spec generation is enabled only when an Anthropic key is present (POST /generate makes real calls).
 const specGenerator = process.env.ANTHROPIC_API_KEY ? new AnthropicLlmClient() : undefined;
@@ -41,7 +41,7 @@ if (process.env.DESIGN_SYSTEM_REPO && !process.env.WEBHOOK_SECRET) {
 // signing secret comes from env (a stable value in prod so minted tokens keep validating).
 const auth = { db, tokenSecret: process.env.LIGHTER_TOKEN_SIGNING_SECRET };
 
-const app = createApp({ db, specStore, specGenerator, notifier, designSystem, auth });
+const app = createApp({ db, storeProvider, specGenerator, notifier, designSystem, auth });
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port }, (info) => {
