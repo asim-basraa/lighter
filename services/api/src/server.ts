@@ -37,7 +37,11 @@ if (process.env.DESIGN_SYSTEM_REPO && !process.env.WEBHOOK_SECRET) {
   );
 }
 
-const app = createApp({ db, specStore, specGenerator, notifier, designSystem });
+// Project bearer-auth (#87): the machine-auth lane for the CLI / GitHub Action. Always on; the token
+// signing secret comes from env (a stable value in prod so minted tokens keep validating).
+const auth = { db, tokenSecret: process.env.LIGHTER_TOKEN_SIGNING_SECRET };
+
+const app = createApp({ db, specStore, specGenerator, notifier, designSystem, auth });
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port }, (info) => {
