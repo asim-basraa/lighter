@@ -5,6 +5,9 @@ import { Heading, Text, Link } from '../components/typography.js';
 import { Button } from '../components/button.js';
 import { Card, Badge, Avatar, Progress, Stat, EmptyState } from '../components/data-display.js';
 import { Alert, Callout } from '../components/feedback.js';
+import { Breadcrumb, Steps, Tabs, Accordion } from '../components/navigation.js';
+import { DescriptionList, Timeline } from '../components/table.js';
+import { Icon, type IconName } from '../components/icon.js';
 
 /**
  * The json-render catalog: the subset of the design system that is meaningful in an AI-authored,
@@ -193,5 +196,72 @@ export const catalogDefs: CatalogComponent[] = [
     description: 'A placeholder for an empty region — a title and optional description.',
     props: z.object({ title: z.string(), description: z.string().optional() }),
     render: ({ props }) => <EmptyState title={props.title} description={props.description} />,
+  }),
+  catalogComponent({
+    name: 'Icon',
+    description:
+      'An inline icon by name (e.g. check, search, user, settings, bell, star, home, mail, calendar).',
+    props: z.object({ name: z.string(), size: z.number().int().min(12).max(48).optional() }),
+    render: ({ props }) => <Icon name={props.name as IconName} size={props.size} />,
+  }),
+  catalogComponent({
+    name: 'Breadcrumb',
+    description: 'A breadcrumb trail of links showing the path to the current page.',
+    props: z.object({
+      items: z.array(z.object({ label: z.string(), href: z.string().optional() })),
+    }),
+    render: ({ props }) => <Breadcrumb items={props.items} />,
+  }),
+  catalogComponent({
+    name: 'Steps',
+    description: 'A stepper showing progress through an ordered sequence of steps.',
+    props: z.object({
+      steps: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+      current: z.number().int().min(0),
+      orientation: z.enum(['horizontal', 'vertical']).optional(),
+    }),
+    render: ({ props }) => (
+      <Steps steps={props.steps} current={props.current} orientation={props.orientation} />
+    ),
+  }),
+  catalogComponent({
+    name: 'DescriptionList',
+    description: 'A list of term / description pairs (key–value metadata).',
+    props: z.object({
+      items: z.array(z.object({ term: z.string(), description: z.string() })),
+      orientation: z.enum(['horizontal', 'vertical']).optional(),
+    }),
+    render: ({ props }) => <DescriptionList items={props.items} orientation={props.orientation} />,
+  }),
+  catalogComponent({
+    name: 'Timeline',
+    description: 'A vertical timeline of events, each with a title and optional description.',
+    props: z.object({
+      items: z.array(
+        z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          tone: z.enum(['default', 'primary', 'success', 'warning', 'destructive']).optional(),
+        }),
+      ),
+    }),
+    render: ({ props }) => <Timeline items={props.items} />,
+  }),
+  catalogComponent({
+    name: 'Tabs',
+    description: 'A tabbed interface; each tab has a label and text content.',
+    props: z.object({
+      tabs: z.array(z.object({ id: z.string(), label: z.string(), content: z.string() })),
+    }),
+    render: ({ props }) => <Tabs tabs={props.tabs} />,
+  }),
+  catalogComponent({
+    name: 'Accordion',
+    description: 'A vertical set of collapsible sections, each with a title and text content.',
+    props: z.object({
+      items: z.array(z.object({ id: z.string(), title: z.string(), content: z.string() })),
+      type: z.enum(['single', 'multiple']).optional(),
+    }),
+    render: ({ props }) => <Accordion items={props.items} type={props.type} />,
   }),
 ];

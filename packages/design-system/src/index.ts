@@ -98,6 +98,67 @@ export {
 // Feedback
 export { Alert, Callout, Banner, type Status } from './components/feedback.js';
 
+// Overlays
+export {
+  Dialog,
+  AlertDialog,
+  Drawer,
+  Popover,
+  DropdownMenu,
+  Tooltip,
+  type DialogProps,
+  type AlertDialogProps,
+  type DrawerProps,
+  type PopoverProps,
+  type DropdownMenuProps,
+  type DropdownMenuEntry,
+  type TooltipProps,
+} from './components/overlay.js';
+
+// Navigation
+export {
+  Tabs,
+  Accordion,
+  Breadcrumb,
+  Pagination,
+  Steps,
+  NavLink,
+  type TabItem,
+  type AccordionItem,
+  type BreadcrumbItem,
+  type StepItem,
+} from './components/navigation.js';
+
+// Tables + more data display
+export {
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  DataTable,
+  DescriptionList,
+  Timeline,
+  Rating,
+  type DataTableColumn,
+  type DescriptionListItem,
+  type TimelineItem,
+} from './components/table.js';
+
+// Icons
+export {
+  Icon,
+  iconNames,
+  CheckIcon,
+  CloseIcon,
+  ChevronDownIcon,
+  SearchIcon,
+  MenuIcon,
+  type IconName,
+  type IconProps,
+} from './components/icon.js';
+
 // json-render integration
 export {
   SpecView,

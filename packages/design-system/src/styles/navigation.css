@@ -1,0 +1,411 @@
+/**
+ * @lighter/design-system navigation styles — Tabs, Accordion, Breadcrumb, Pagination, Steps,
+ * NavLink. Every visual value is a design token (CSS custom property) so swapping DTCG tokens
+ * re-themes all of it. Class convention: `lui-<name>`, modifiers `lui-<name>--<variant>`, parts
+ * `lui-<name>__<part>`.
+ */
+
+/* ---- tabs --------------------------------------------------------------- */
+.lui-tabs {
+  font-family: var(--font-family-sans);
+}
+.lui-tabs__list {
+  display: flex;
+  gap: var(--spacing-1);
+  /* The list's bottom border is the neutral track; the active tab paints over it with the accent. */
+  border-bottom: 1px solid var(--border-default);
+}
+.lui-tabs__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 0;
+  background: transparent;
+  color: var(--foreground-muted);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+.lui-tabs__tab:hover:not(:disabled):not(.lui-tabs__tab--active) {
+  color: var(--foreground-default);
+}
+.lui-tabs__tab:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+.lui-tabs__tab:disabled {
+  color: var(--foreground-subtle);
+  cursor: not-allowed;
+}
+.lui-tabs__tab--active {
+  color: var(--primary-default);
+}
+/* Underline indicator sits on the list's border line and animates in under the active tab. */
+.lui-tabs__tab--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--primary-default);
+  border-radius: var(--radius-full);
+  animation: lui-tabs-underline var(--duration-normal) var(--easing-standard);
+}
+.lui-tabs__panel {
+  padding: var(--spacing-4) 0;
+  color: var(--foreground-default);
+  font-size: var(--font-size-md);
+}
+.lui-tabs__panel:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- accordion ---------------------------------------------------------- */
+.lui-accordion {
+  font-family: var(--font-family-sans);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  /* Clip child borders to the rounded corners. */
+  overflow: hidden;
+}
+.lui-accordion__item + .lui-accordion__item {
+  border-top: 1px solid var(--border-subtle);
+}
+.lui-accordion__heading {
+  margin: 0;
+  /* Reset the heading's intrinsic type; the button inside owns the visual weight. */
+  font: inherit;
+}
+.lui-accordion__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  width: 100%;
+  padding: var(--spacing-4) var(--spacing-4);
+  border: 0;
+  background: transparent;
+  color: var(--foreground-default);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing-standard);
+}
+.lui-accordion__trigger:hover {
+  background: var(--background-subtle);
+}
+.lui-accordion__trigger:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: -2px;
+}
+.lui-accordion__title {
+  min-width: 0;
+}
+/* Chevron drawn with borders; rotates from pointing-down (closed) to pointing-up (open). */
+.lui-accordion__chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--foreground-muted);
+  border-bottom: 2px solid var(--foreground-muted);
+  transform: rotate(45deg);
+  transition: transform var(--duration-normal) var(--easing-standard);
+}
+.lui-accordion__item--open .lui-accordion__chevron {
+  transform: rotate(-135deg);
+}
+.lui-accordion__content {
+  padding: 0 var(--spacing-4) var(--spacing-4);
+  color: var(--foreground-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+/* ---- breadcrumb --------------------------------------------------------- */
+.lui-breadcrumb {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+}
+.lui-breadcrumb__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lui-breadcrumb__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.lui-breadcrumb__link {
+  color: var(--foreground-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+.lui-breadcrumb__link:hover {
+  color: var(--foreground-default);
+  text-decoration: underline;
+}
+.lui-breadcrumb__link:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: 2px;
+}
+.lui-breadcrumb__current {
+  color: var(--foreground-default);
+  font-weight: var(--font-weight-medium);
+}
+.lui-breadcrumb__separator {
+  color: var(--foreground-subtle);
+  user-select: none;
+}
+
+/* ---- pagination --------------------------------------------------------- */
+.lui-pagination {
+  font-family: var(--font-family-sans);
+}
+.lui-pagination__list {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Shared sizing for page numbers and the prev/next controls. */
+.lui-pagination__page,
+.lui-pagination__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--spacing-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--background-canvas);
+  color: var(--foreground-default);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+.lui-pagination__page:hover:not(.lui-pagination__page--active),
+.lui-pagination__control:hover:not(:disabled) {
+  background: var(--background-subtle);
+  border-color: var(--border-strong);
+}
+.lui-pagination__page:focus-visible,
+.lui-pagination__control:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: 2px;
+}
+.lui-pagination__page--active {
+  background: var(--primary-default);
+  border-color: var(--primary-default);
+  color: var(--primary-foreground);
+  cursor: default;
+}
+.lui-pagination__control:disabled {
+  color: var(--foreground-subtle);
+  background: var(--background-muted);
+  cursor: not-allowed;
+}
+.lui-pagination__ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  color: var(--foreground-subtle);
+  user-select: none;
+}
+
+/* ---- steps (stepper) ---------------------------------------------------- */
+.lui-steps {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-family-sans);
+}
+.lui-steps--horizontal {
+  flex-direction: row;
+}
+.lui-steps--vertical {
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+.lui-steps__item {
+  position: relative;
+  display: flex;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+.lui-steps--horizontal .lui-steps__item {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 var(--spacing-2);
+}
+.lui-steps--vertical .lui-steps__item {
+  flex-direction: row;
+  align-items: flex-start;
+}
+/* Marker: the numbered / checked circle. Status modifiers recolour it below. */
+.lui-steps__marker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--background-canvas);
+  color: var(--foreground-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.lui-steps__item--complete .lui-steps__marker {
+  border-color: var(--primary-default);
+  background: var(--primary-default);
+  color: var(--primary-foreground);
+}
+.lui-steps__item--current .lui-steps__marker {
+  border-color: var(--primary-default);
+  background: var(--primary-subtle);
+  color: var(--primary-default);
+}
+/* Connector line linking a marker back to the previous step. Hidden on the first item. */
+.lui-steps__connector {
+  position: absolute;
+  background: var(--border-default);
+}
+.lui-steps__item--complete .lui-steps__connector,
+.lui-steps__item--current .lui-steps__connector {
+  background: var(--primary-default);
+}
+.lui-steps__item:first-child .lui-steps__connector {
+  display: none;
+}
+/* Horizontal: connector runs left from the marker centre across the gap to the prior marker. */
+.lui-steps--horizontal .lui-steps__connector {
+  top: 16px;
+  right: 50%;
+  left: -50%;
+  height: 2px;
+  transform: translateX(-16px) translateX(-1px);
+}
+/* Vertical: connector runs up from the marker to the prior one. */
+.lui-steps--vertical .lui-steps__connector {
+  left: 15px;
+  top: -16px;
+  height: 16px;
+  width: 2px;
+}
+.lui-steps__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+.lui-steps--horizontal .lui-steps__body {
+  align-items: center;
+  margin-top: var(--spacing-2);
+}
+.lui-steps--vertical .lui-steps__body {
+  padding-top: var(--spacing-1);
+}
+.lui-steps__label {
+  color: var(--foreground-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.lui-steps__item--complete .lui-steps__label,
+.lui-steps__item--current .lui-steps__label {
+  color: var(--foreground-default);
+}
+.lui-steps__item--current .lui-steps__label {
+  font-weight: var(--font-weight-semibold);
+}
+.lui-steps__description {
+  color: var(--foreground-subtle);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+/* ---- nav link ----------------------------------------------------------- */
+.lui-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  color: var(--foreground-muted);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+.lui-nav-link:hover {
+  background: var(--muted-default);
+  color: var(--foreground-default);
+}
+.lui-nav-link:focus-visible {
+  outline: 2px solid var(--ring-default);
+  outline-offset: 2px;
+}
+.lui-nav-link--active {
+  background: var(--primary-subtle);
+  color: var(--primary-default);
+}
+.lui-nav-link--active:hover {
+  background: var(--primary-subtle);
+  color: var(--primary-hover);
+}
+
+/* ---- motion ------------------------------------------------------------- */
+@keyframes lui-tabs-underline {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* Respect users who prefer reduced motion — drop the enter animation. */
+@media (prefers-reduced-motion: reduce) {
+  .lui-tabs__tab--active::after {
+    animation: none;
+  }
+  .lui-accordion__chevron {
+    transition: none;
+  }
+}
