@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
 import { catalogDefs } from '../src/registry/catalog-defs.js';
-import { objectToJsonSchema } from '../src/build/zodToJsonSchema.js';
+import { objectToJsonSchema } from '../src/schema/zodToJsonSchema.js';
 import { flatTokens, themeStylesheet } from '../src/tokens/index.js';
 
 /**
