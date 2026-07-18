@@ -26,12 +26,19 @@ import { registerFlowRoutes } from './flow.js';
 import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import { requireProject, type AuthConfig } from './auth.js';
+import type { ProjectStores } from './projectStores.js';
 import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
   db: Db;
-  /** Git-backed store for screens + spec versions. When present, the /screens routes are mounted. */
+  /** Git-backed store for screens + spec versions (single global/single-tenant). Mounts the /screens routes. */
   specStore?: SpecStore;
+  /**
+   * Per-project spec stores (#87 scoping). When set together with `auth` (and `specStore` is not),
+   * the /screens + /specs routes are project-scoped: auth resolves the project, storage is that
+   * project's. Mutually exclusive with `specStore` so there's no route collision.
+   */
+  storeProvider?: ProjectStores;
   /** LLM client for spec generation. When present, POST /generate is available. */
   specGenerator?: LlmClient;
   /** Notification sink for comment/approval events (#29). Optional — absent means no notifications. */
@@ -275,20 +282,37 @@ export function createApp(deps: AppDeps): Hono {
     return c.json({ version, spec: refined.spec, attempts: refined.attempts }, 201);
   });
 
-  // Screen + spec-version CRUD (git-backed), mounted only when a spec store is configured. Specs are
-  // validated against the latest ingested catalog, adapted here from the inventory model.
+  // Adapt an inventory model into the catalog shape the spec validator expects.
+  const catalogFromModel = (model: InventoryModel | null) =>
+    model ? Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }])) : null;
+
+  // Screen + spec-version CRUD (git-backed). Two mutually-exclusive modes, so no route collision:
+  //  - `specStore`: a single global store (single-tenant; every existing test uses this).
+  //  - `storeProvider` + `auth`: per-project scoped stores (#87) — auth resolves the project, and the
+  //    store + catalog are that project's.
   if (deps.specStore) {
-    const loadCatalog = async () => {
-      const model = (await latestInventory(deps.db)) as InventoryModel | null;
-      if (!model) return null;
-      return Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }]));
-    };
-    registerScreenRoutes(app, deps.specStore, loadCatalog);
-    registerShareRoutes(app, deps.db, deps.specStore);
-    registerCommentRoutes(app, deps.db, deps.specStore, deps.notifier);
-    registerApprovalRoutes(app, deps.db, deps.specStore, deps.notifier);
-    registerFlowRoutes(app, deps.db, deps.specStore);
-    registerHandoffRoutes(app, deps.db, deps.specStore);
+    const globalStore = deps.specStore;
+    const resolveStore = async () => globalStore;
+    const resolveCatalog = async () =>
+      catalogFromModel((await latestInventory(deps.db)) as InventoryModel | null);
+    registerScreenRoutes(app, resolveStore, resolveCatalog);
+    registerShareRoutes(app, deps.db, globalStore);
+    registerCommentRoutes(app, deps.db, globalStore, deps.notifier);
+    registerApprovalRoutes(app, deps.db, globalStore, deps.notifier);
+    registerFlowRoutes(app, deps.db, globalStore);
+    registerHandoffRoutes(app, deps.db, globalStore);
+  } else if (deps.storeProvider && deps.auth) {
+    const provider = deps.storeProvider;
+    const guard = requireProject(deps.auth);
+    // Every screen/spec route is project-scoped. (Share/comment/approval/flow/handoff scoping is the
+    // next slice; those routes are not mounted in scoped mode yet.)
+    app.use('/screens', guard);
+    app.use('/screens/*', guard);
+    app.use('/specs', guard);
+    const resolveStore = (c: Context) => provider.forProject(c.get('project').id);
+    const resolveCatalog = async (c: Context) =>
+      catalogFromModel((await latestInventory(deps.db, c.get('project').id)) as InventoryModel | null);
+    registerScreenRoutes(app, resolveStore, resolveCatalog);
   }
 
   // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.
