@@ -9,7 +9,7 @@ import {
   type Db,
   type SignOffPartyInput,
 } from '@lighter/db';
-import type { SpecStore } from './specStore.js';
+import type { ScreenScope } from './screenScope.js';
 import {
   canTransition,
   isApprovalState,
@@ -38,7 +38,7 @@ import { safeNotify, type Notifier } from './notifier.js';
 export function registerApprovalRoutes(
   app: Hono,
   db: Db,
-  store: SpecStore,
+  scope: ScreenScope,
   notifier?: Notifier,
 ): void {
   const parseVersion = (raw: string): number | null => {
@@ -46,20 +46,22 @@ export function registerApprovalRoutes(
     return Number.isInteger(v) && v >= 1 ? v : null;
   };
 
-  const currentState = async (screenId: string, version: number): Promise<ApprovalState> => {
-    const stored = await getVersionState(db, screenId, version);
+  // All approval state (version status, sign-off set + records) is keyed by the DB screen key, which
+  // is the bare id in global mode and `<projectId>:<screenId>` in scoped mode.
+  const currentState = async (key: string, version: number): Promise<ApprovalState> => {
+    const stored = await getVersionState(db, key, version);
     return stored && isApprovalState(stored) ? stored : DEFAULT_STATE;
   };
 
   // Block approval until every configured sign-off party has signed this version. No set → ungated.
   const signOffGate = async (
     c: Context,
-    screenId: string,
+    key: string,
     version: number,
   ): Promise<Response | null> => {
-    const required = await getSignOffSet(db, screenId);
+    const required = await getSignOffSet(db, key);
     if (required.length === 0) return null;
-    const missing = missingSignOffs(required, await listSignOffs(db, screenId, version));
+    const missing = missingSignOffs(required, await listSignOffs(db, key, version));
     if (missing.length > 0) {
       return c.json({ status: 'error', message: 'sign-off incomplete', missing }, 409);
     }
@@ -72,17 +74,18 @@ export function registerApprovalRoutes(
     if (version === null) {
       return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
     }
+    const store = await scope.storeFor(c);
     if (!(await store.getVersion(id, version))) {
       return c.json({ status: 'error', message: 'version not found' }, 404);
     }
-    return c.json({ version, state: await currentState(id, version) });
+    return c.json({ version, state: await currentState(scope.keyFor(c, id), version) });
   });
 
   // A transition endpoint: move a version to `to`, rejecting an illegal transition with 409. The
   // read-check-write here is not atomic; like the rest of the API it assumes a single writing process
   // (see SpecStore) — two racing transitions on one version could interleave into a lost update. A
   // conditional write (UPDATE … WHERE state = expected) would close that if we ever go multi-writer.
-  type Precondition = (c: Context, id: string, version: number) => Promise<Response | null>;
+  type Precondition = (c: Context, key: string, version: number) => Promise<Response | null>;
   // Best-effort side effect after a committed transition. MUST NOT throw — it runs after the state is
   // already persisted, so a throw would surface a misleading 500 on a succeeded transition.
   type OnSuccess = (id: string, version: number) => Promise<void>;
@@ -97,10 +100,12 @@ export function registerApprovalRoutes(
       if (version === null) {
         return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
       }
+      const store = await scope.storeFor(c);
+      const key = scope.keyFor(c, id);
       if (!(await store.getVersion(id, version))) {
         return c.json({ status: 'error', message: 'version not found' }, 404);
       }
-      const from = await currentState(id, version);
+      const from = await currentState(key, version);
       if (from === to) {
         return c.json({ version, state: to }); // idempotent: already in the target state
       }
@@ -111,10 +116,10 @@ export function registerApprovalRoutes(
         );
       }
       if (opts.precondition) {
-        const blocked = await opts.precondition(c, id, version);
+        const blocked = await opts.precondition(c, key, version);
         if (blocked) return blocked;
       }
-      await setVersionState(db, id, version, to);
+      await setVersionState(db, key, version, to);
       if (opts.onSuccess) await opts.onSuccess(id, version);
       return c.json({ version, state: to });
     });
@@ -129,15 +134,17 @@ export function registerApprovalRoutes(
   // Read the configured required sign-off parties for a screen.
   app.get('/screens/:id/sign-off-set', async (c) => {
     const id = c.req.param('id');
+    const store = await scope.storeFor(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
-    return c.json({ parties: await getSignOffSet(db, id) });
+    return c.json({ parties: await getSignOffSet(db, scope.keyFor(c, id)) });
   });
 
   // Configure the required sign-off set (must include ≥1 customer and ≥1 internal owner).
   app.put('/screens/:id/sign-off-set', async (c) => {
     const id = c.req.param('id');
+    const store = await scope.storeFor(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
@@ -152,12 +159,13 @@ export function registerApprovalRoutes(
     }
     // Validated above, so the cast is sound.
     const typed = parties as SignOffPartyInput[];
+    const key = scope.keyFor(c, id);
     await setSignOffSet(
       db,
-      id,
+      key,
       typed.map((p) => ({ party: p.party, role: p.role })),
     );
-    return c.json({ parties: await getSignOffSet(db, id) });
+    return c.json({ parties: await getSignOffSet(db, key) });
   });
 
   // Record a party's sign-off on a version. The party must belong to the screen's configured set.
@@ -167,6 +175,8 @@ export function registerApprovalRoutes(
     if (version === null) {
       return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
     }
+    const store = await scope.storeFor(c);
+    const key = scope.keyFor(c, id);
     if (!(await store.getVersion(id, version))) {
       return c.json({ status: 'error', message: 'version not found' }, 404);
     }
@@ -175,7 +185,7 @@ export function registerApprovalRoutes(
     if (typeof party !== 'string' || party.trim().length === 0) {
       return c.json({ status: 'error', message: 'party (non-empty string) is required' }, 400);
     }
-    const required = await getSignOffSet(db, id);
+    const required = await getSignOffSet(db, key);
     if (required.length === 0) {
       return c.json(
         { status: 'error', message: 'no sign-off set configured for this screen' },
@@ -185,8 +195,8 @@ export function registerApprovalRoutes(
     if (!required.some((r) => r.party === party)) {
       return c.json({ status: 'error', message: `"${party}" is not in the sign-off set` }, 400);
     }
-    await recordSignOff(db, id, version, party);
-    const signed = await listSignOffs(db, id, version);
+    await recordSignOff(db, key, version, party);
+    const signed = await listSignOffs(db, key, version);
     const missing = missingSignOffs(required, signed);
     return c.json({ version, party, signed, missing, complete: missing.length === 0 });
   });

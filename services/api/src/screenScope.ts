@@ -1,10 +1,12 @@
 import type { Context } from 'hono';
 import type { SpecStore } from './specStore.js';
 
-/** A screen resolved from a DB key: the store that holds it + its bare (store-level) screen id. */
+/** A screen resolved from a DB key: the store that holds it, its bare screen id, and its project. */
 export interface ResolvedScreen {
   store: SpecStore;
   screenId: string;
+  /** The owning project id, or null in global/single-tenant mode. Used to namespace sibling keys. */
+  projectId: string | null;
 }
 
 /**
@@ -24,6 +26,8 @@ export interface ScreenScope {
   storeFor(c: Context): Promise<SpecStore>;
   /** The DB key for a screen id in the authed caller's scope (namespaced per project, or bare). */
   keyFor(c: Context, screenId: string): string;
+  /** The authed caller's project id, or null in global mode (for reads keyed by project, e.g. inventory). */
+  projectIdFor(c: Context): string | null;
   /** Resolve a stored DB key (e.g. from a share token) back to its store + bare screen id, or null. */
   resolveKey(key: string): Promise<ResolvedScreen | null>;
 }
