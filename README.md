@@ -6,7 +6,16 @@ ideation surface (Claude generates catalog-constrained json-render specs), and a
 (deploy to shareable URLs, element-anchored comments, approvals) that produces a coding-agent
 handoff bundle.
 
-See [docs/prd.md](docs/prd.md) for the full product spec.
+![Lighter demo](docs/demo/lighter-demo.gif)
+
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** — the full pipeline (ingest → author → deploy → review → hand off) with runnable commands.
+- **[Developer Guide](docs/DEVELOPMENT.md)** — architecture, setup, the dev loop, conventions, and how to consume Lighter.
+- **[API Reference](docs/API.md)** — every HTTP endpoint.
+- **[Product spec (PRD)](docs/prd.md)** — the original product spec.
+
+The **entire backlog is shipped** — see [HANDOFF.md](docs/HANDOFF.md) for the build log.
 
 ## Repository layout
 
