@@ -8,7 +8,7 @@ import {
   resolveShare,
   type Db,
 } from '@lighter/db';
-import type { SpecStore } from './specStore.js';
+import type { ScreenScope } from './screenScope.js';
 import { aggregateComments } from './commentAggregation.js';
 import { safeNotify, type Notifier } from './notifier.js';
 
@@ -35,7 +35,7 @@ const MAX_AUTHOR = 120;
 export function registerCommentRoutes(
   app: Hono,
   db: Db,
-  store: SpecStore,
+  scope: ScreenScope,
   notifier?: Notifier,
 ): void {
   app.post('/share/:token/comments', async (c) => {
@@ -43,7 +43,11 @@ export function registerCommentRoutes(
     if (!target) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
-    const spec = await store.getVersion(target.screenId, target.version);
+    const resolved = await scope.resolveKey(target.screenId);
+    if (!resolved) {
+      return c.json({ status: 'error', message: 'share not found' }, 404);
+    }
+    const spec = await resolved.store.getVersion(resolved.screenId, target.version);
     if (!spec) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
@@ -147,10 +151,11 @@ export function registerCommentRoutes(
   // not a share token). Also the context #28 feeds back into generation.
   app.get('/screens/:id/comments', async (c) => {
     const id = c.req.param('id');
+    const store = await scope.storeFor(c);
     if (!(await store.getScreen(id))) {
       return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
     }
-    const rows = await listCommentsForScreen(db, id);
+    const rows = await listCommentsForScreen(db, scope.keyFor(c, id));
     return c.json({ screen: id, versions: aggregateComments(rows) });
   });
 }

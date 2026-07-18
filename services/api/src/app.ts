@@ -27,6 +27,7 @@ import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import { requireProject, type AuthConfig } from './auth.js';
 import type { ProjectStores } from './projectStores.js';
+import type { ScreenScope } from './screenScope.js';
 import type { Notifier } from './notifier.js';
 
 export interface AppDeps {
@@ -295,24 +296,44 @@ export function createApp(deps: AppDeps): Hono {
     const resolveStore = async () => globalStore;
     const resolveCatalog = async () =>
       catalogFromModel((await latestInventory(deps.db)) as InventoryModel | null);
+    // Global scope: the DB key is the bare screen id; one shared store (single-tenant, unchanged).
+    const globalScope: ScreenScope = {
+      storeFor: async () => globalStore,
+      keyFor: (_c, screenId) => screenId,
+      resolveKey: async (key) => ({ store: globalStore, screenId: key }),
+    };
     registerScreenRoutes(app, resolveStore, resolveCatalog);
-    registerShareRoutes(app, deps.db, globalStore);
-    registerCommentRoutes(app, deps.db, globalStore, deps.notifier);
+    registerShareRoutes(app, deps.db, globalScope);
+    registerCommentRoutes(app, deps.db, globalScope, deps.notifier);
     registerApprovalRoutes(app, deps.db, globalStore, deps.notifier);
     registerFlowRoutes(app, deps.db, globalStore);
     registerHandoffRoutes(app, deps.db, globalStore);
   } else if (deps.storeProvider && deps.auth) {
     const provider = deps.storeProvider;
     const guard = requireProject(deps.auth);
-    // Every screen/spec route is project-scoped. (Share/comment/approval/flow/handoff scoping is the
-    // next slice; those routes are not mounted in scoped mode yet.)
+    // The authed management routes are project-scoped. (approval/flow/handoff scoping is the next
+    // slice; those are not mounted in scoped mode yet. The public /share/* routes carry no guard —
+    // the share token is the credential and encodes its own project.)
     app.use('/screens', guard);
     app.use('/screens/*', guard);
     app.use('/specs', guard);
     const resolveStore = (c: Context) => provider.forProject(c.get('project').id);
     const resolveCatalog = async (c: Context) =>
       catalogFromModel((await latestInventory(deps.db, c.get('project').id)) as InventoryModel | null);
+    // Scoped scope: the DB key is `<projectId>:<screenId>`, so every screenId-keyed table isolates
+    // per project with no schema change; a share token recovers its project by splitting the key.
+    const scopedScope: ScreenScope = {
+      storeFor: (c) => provider.forProject(c.get('project').id),
+      keyFor: (c, screenId) => `${c.get('project').id}:${screenId}`,
+      resolveKey: async (key) => {
+        const i = key.indexOf(':');
+        if (i <= 0) return null;
+        return { store: await provider.forProject(key.slice(0, i)), screenId: key.slice(i + 1) };
+      },
+    };
     registerScreenRoutes(app, resolveStore, resolveCatalog);
+    registerShareRoutes(app, deps.db, scopedScope);
+    registerCommentRoutes(app, deps.db, scopedScope, deps.notifier);
   }
 
   // The design-system re-ingest webhook needs only the DB + a configured repo, not the spec store.
