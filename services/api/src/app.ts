@@ -152,6 +152,24 @@ export function createApp(deps: AppDeps): Hono {
     return c.json(model);
   });
 
+  // Mode: a single global store (`specStore`, single-tenant) or per-project scoped stores
+  // (`storeProvider` + `auth`). In scoped mode, gate every project-owned surface UP FRONT — before the
+  // routes are defined — so the guard actually applies to them (Hono only runs middleware registered
+  // before a route). The public /share/* and /health stay open; /inventory + /projects self-gate.
+  const scoped = !deps.specStore && !!deps.storeProvider && !!deps.auth;
+  if (scoped) {
+    const guard = requireProject(deps.auth!);
+    app.use('/screens', guard);
+    app.use('/screens/*', guard);
+    app.use('/specs', guard);
+    app.use('/generate', guard);
+    app.use('/generate/*', guard);
+  }
+  // Resolve the inventory scope + spec store for a request, honoring the mode (project's, or global).
+  const resolveProjectId = (c: Context): string | null => (scoped ? c.get('project').id : null);
+  const resolveReqStore = async (c: Context): Promise<SpecStore | undefined> =>
+    scoped ? await deps.storeProvider!.forProject(c.get('project').id) : deps.specStore;
+
   // Shared prelude for the generation routes: resolve the LLM client, the intent, and the catalog —
   // or return the appropriate error response (501 not configured / 400 bad intent / 422 no catalog).
   type GenReady = { generator: LlmClient; intent: string; catalog: CatalogComponent[] };
@@ -173,7 +191,7 @@ export function createApp(deps: AppDeps): Hono {
         res: c.json({ status: 'error', message: 'intent (non-empty string) is required' }, 400),
       };
     }
-    const model = (await latestInventory(deps.db)) as InventoryModel | null;
+    const model = (await latestInventory(deps.db, resolveProjectId(c))) as InventoryModel | null;
     if (!model) {
       return {
         ok: false,
@@ -233,7 +251,7 @@ export function createApp(deps: AppDeps): Hono {
   // Needs both the store (to read the current spec and save the new one) and the LLM client.
   app.post('/screens/:id/refine', async (c) => {
     const generator = deps.specGenerator;
-    const store = deps.specStore;
+    const store = await resolveReqStore(c);
     if (!generator || !store) {
       return c.json({ status: 'error', message: 'spec refinement is not configured' }, 501);
     }
@@ -254,7 +272,7 @@ export function createApp(deps: AppDeps): Hono {
         400,
       );
     }
-    const model = (await latestInventory(deps.db)) as InventoryModel | null;
+    const model = (await latestInventory(deps.db, resolveProjectId(c))) as InventoryModel | null;
     if (!model) {
       return c.json({ status: 'error', message: 'no design-system catalog ingested yet' }, 422);
     }
@@ -311,13 +329,9 @@ export function createApp(deps: AppDeps): Hono {
     registerHandoffRoutes(app, deps.db, globalScope);
   } else if (deps.storeProvider && deps.auth) {
     const provider = deps.storeProvider;
-    const guard = requireProject(deps.auth);
-    // The authed management routes are project-scoped. (approval/flow/handoff scoping is the next
-    // slice; those are not mounted in scoped mode yet. The public /share/* routes carry no guard —
-    // the share token is the credential and encodes its own project.)
-    app.use('/screens', guard);
-    app.use('/screens/*', guard);
-    app.use('/specs', guard);
+    // The project-owned surfaces (/screens, /specs, /generate) are already guarded up front (see the
+    // `scoped` block above). The public /share/* routes carry no guard — the share token is the
+    // credential and encodes its own project.
     const resolveStore = (c: Context) => provider.forProject(c.get('project').id);
     const resolveCatalog = async (c: Context) =>
       catalogFromModel((await latestInventory(deps.db, c.get('project').id)) as InventoryModel | null);
