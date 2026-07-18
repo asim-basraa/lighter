@@ -52,7 +52,9 @@ export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void
       );
     }
 
-    // The catalog prompt + tokens come from the current ingested design system.
+    // The catalog prompt + tokens come from the CURRENT ingested design system, not the catalog the
+    // version was approved against. If the design system was re-ingested since approval these reflect
+    // now, not approval-time (see #37 for the drift the catalog can undergo).
     const model = (await latestInventory(db)) as InventoryModel | null;
     if (!model) {
       return c.json({ status: 'error', message: 'no design-system catalog ingested' }, 422);
@@ -63,6 +65,18 @@ export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void
       props: comp.props,
     }));
 
+    // A catalog-valid spec can still be unserializable to json-render (a prop named visible/on/repeat/
+    // watch), which catalog validation doesn't catch — report it cleanly instead of 500ing the export.
+    let reactExport: string;
+    try {
+      reactExport = toReactExport(spec);
+    } catch (err) {
+      return c.json(
+        { status: 'error', message: `spec cannot be exported to React: ${(err as Error).message}` },
+        422,
+      );
+    }
+
     return c.json({
       screen,
       version,
@@ -70,7 +84,7 @@ export function registerHandoffRoutes(app: Hono, db: Db, store: SpecStore): void
       catalogPrompt: catalogPrompt(catalog),
       tokens: model.tokens,
       intent: (await store.getIntent(id)) ?? '',
-      reactExport: toReactExport(spec),
+      reactExport,
     });
   });
 }

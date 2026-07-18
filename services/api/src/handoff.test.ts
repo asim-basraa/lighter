@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,5 +125,21 @@ describe('export handoff bundle (#33)', () => {
     const app = await testApp();
     await seed(app, true);
     expect((await app.request('/screens/checkout/versions/9/export')).status).toBe(404);
+  });
+
+  it('422s (not 500) an approved spec that cannot serialize to React', async () => {
+    const app = await testApp();
+    await seed(app, false);
+    // A spec with a reserved-key prop passes structural parse but can't serialize to json-render.
+    // Write it directly (bypassing save-time catalog validation), then approve and export.
+    writeFileSync(
+      join(root, 'checkout', '1.json'),
+      JSON.stringify({ root: { type: 'Modal', props: { visible: true }, children: [] } }),
+    );
+    await app.request('/screens/checkout/versions/1/share', { method: 'POST' });
+    await app.request('/screens/checkout/versions/1/approve', { method: 'POST' });
+    const res = await exportBundle(app);
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toMatch(/cannot be exported/i);
   });
 });
