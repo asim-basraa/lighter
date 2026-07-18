@@ -8,7 +8,7 @@ import {
   latestShareForScreen,
   type Db,
 } from '@lighter/db';
-import type { SpecStore } from './specStore.js';
+import type { ScreenScope } from './screenScope.js';
 import { DEFAULT_STATE, isApprovalState } from './approvalState.js';
 
 /**
@@ -30,7 +30,7 @@ import { DEFAULT_STATE, isApprovalState } from './approvalState.js';
  * minting must be gated (auth, or restrict token issuance to an internal caller) under the same
  * hardening ticket as the repoPath note.
  */
-export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
+export function registerShareRoutes(app: Hono, db: Db, scope: ScreenScope): void {
   // Deploy a specific version to a share URL. Idempotent per version (a version has one stable token).
   app.post('/screens/:id/versions/:version/share', async (c) => {
     const id = c.req.param('id');
@@ -38,6 +38,8 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
     if (!Number.isInteger(version) || version < 1) {
       return c.json({ status: 'error', message: 'version must be a positive integer' }, 400);
     }
+    const store = await scope.storeFor(c);
+    const key = scope.keyFor(c, id);
     // Only mint a token for a version that actually exists, so a share URL never 404s at render time
     // for a version that was never saved.
     if (!(await store.getVersion(id, version))) {
@@ -61,13 +63,13 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
       }
       expiresAt = at.toISOString();
     }
-    const { token } = await createShare(db, id, version, expiresAt);
+    const { token } = await createShare(db, key, version, expiresAt);
     // Deploying advances the approval lifecycle draft → shared (#25). Only from draft, so a re-deploy
     // never resets a version that's already shared / changes-requested / approved.
-    const stored = await getVersionState(db, id, version);
+    const stored = await getVersionState(db, key, version);
     const current = stored && isApprovalState(stored) ? stored : DEFAULT_STATE;
     if (current === DEFAULT_STATE) {
-      await setVersionState(db, id, version, 'shared');
+      await setVersionState(db, key, version, 'shared');
     }
     return c.json({ token, expiresAt }, 201);
   });
@@ -80,9 +82,15 @@ export function registerShareRoutes(app: Hono, db: Db, store: SpecStore): void {
     if (!target) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
     }
+    // The share's stored screen key carries its scope; resolve it back to the owning store + screen id.
+    const resolved = await scope.resolveKey(target.screenId);
+    if (!resolved) {
+      return c.json({ status: 'error', message: 'share not found' }, 404);
+    }
+    const { store, screenId } = resolved;
     const [screen, spec] = await Promise.all([
-      store.getScreen(target.screenId),
-      store.getVersion(target.screenId, target.version),
+      store.getScreen(screenId),
+      store.getVersion(screenId, target.version),
     ]);
     if (!screen || !spec) {
       return c.json({ status: 'error', message: 'share not found' }, 404);
