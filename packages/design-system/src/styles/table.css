@@ -1,0 +1,259 @@
+/**
+ * @lighter/design-system — table & data-presentation styles.
+ *
+ * Companion to ../components/table.tsx. Every visual value is a design token (`var(--token)`) so
+ * swapping DTCG tokens re-themes everything. Class convention: `lui-<name>`, modifiers
+ * `lui-<name>--<variant>`, parts `lui-<name>__<part>`.
+ */
+
+/* ---- primitive table ---------------------------------------------------- */
+
+/* Horizontal scroll container so wide tables never overflow the page. */
+.lui-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--card-background);
+}
+
+.lui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  color: var(--foreground-default);
+}
+
+/* Header */
+.lui-table__head {
+  background: var(--background-subtle);
+}
+.lui-table__th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--foreground-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* Body cells */
+.lui-table__td {
+  color: var(--foreground-default);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+/* Density controls the vertical rhythm of every cell. */
+.lui-table--comfortable .lui-table__th,
+.lui-table--comfortable .lui-table__td {
+  padding: var(--spacing-3) var(--spacing-4);
+}
+.lui-table--compact .lui-table__th,
+.lui-table--compact .lui-table__td {
+  padding: var(--spacing-1) var(--spacing-2);
+}
+
+/* Alignment modifiers, shared by Th and Td. */
+.lui-table__th--left,
+.lui-table__td--left {
+  text-align: left;
+}
+.lui-table__th--center,
+.lui-table__td--center {
+  text-align: center;
+}
+.lui-table__th--right,
+.lui-table__td--right {
+  text-align: right;
+}
+
+/* Zebra striping on body rows. */
+.lui-table__body .lui-table__row:nth-child(even) {
+  background: var(--background-subtle);
+}
+
+/* Row hover. */
+.lui-table__body .lui-table__row:hover {
+  background: var(--background-muted);
+}
+
+/* Last row shouldn't carry a divider — the wrap border closes it off. */
+.lui-table__body .lui-table__row:last-child .lui-table__td {
+  border-bottom: 0;
+}
+
+/* Empty-state cell spanning the full table. */
+.lui-table__empty {
+  padding: var(--spacing-6) var(--spacing-4);
+  text-align: center;
+  color: var(--foreground-subtle);
+}
+
+/* ---- DescriptionList ---------------------------------------------------- */
+
+.lui-dl {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  color: var(--foreground-default);
+}
+.lui-dl__row {
+  padding: var(--spacing-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.lui-dl__row:last-child {
+  border-bottom: 0;
+}
+.lui-dl__term {
+  color: var(--foreground-muted);
+  font-weight: var(--font-weight-medium);
+}
+.lui-dl__desc {
+  margin: 0;
+  color: var(--foreground-default);
+}
+
+/* Horizontal: term and description side-by-side. */
+.lui-dl--horizontal .lui-dl__row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 2fr;
+  gap: var(--spacing-4);
+  align-items: baseline;
+}
+
+/* Vertical: description stacked under its term. */
+.lui-dl--vertical .lui-dl__term {
+  margin-bottom: var(--spacing-1);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---- Timeline ----------------------------------------------------------- */
+
+.lui-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  color: var(--foreground-default);
+}
+
+/* Each item reserves a left gutter for the dot, and draws the connector line in it. */
+.lui-timeline__item {
+  position: relative;
+  padding-left: var(--spacing-6);
+  padding-bottom: var(--spacing-4);
+}
+
+/* The connector line runs down the gutter, centered under the dot. */
+.lui-timeline__item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--spacing-2);
+  width: 2px;
+  background: var(--border-default);
+}
+
+/* No trailing line past the last dot. */
+.lui-timeline__item:last-child {
+  padding-bottom: 0;
+}
+.lui-timeline__item:last-child::before {
+  display: none;
+}
+
+/* The dot sits on top of the connector line. */
+.lui-timeline__dot {
+  position: absolute;
+  left: 0;
+  top: var(--spacing-1);
+  width: var(--spacing-3);
+  height: var(--spacing-3);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--card-background);
+  background: var(--muted-default);
+  box-shadow: 0 0 0 1px var(--border-default);
+}
+
+/* Tone colors for the dot. */
+.lui-timeline__dot--default {
+  background: var(--muted-default);
+}
+.lui-timeline__dot--primary {
+  background: var(--primary-default);
+}
+.lui-timeline__dot--success {
+  background: var(--success-default);
+}
+.lui-timeline__dot--warning {
+  background: var(--warning-default);
+}
+.lui-timeline__dot--destructive {
+  background: var(--destructive-default);
+}
+
+.lui-timeline__title {
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground-default);
+}
+.lui-timeline__meta {
+  margin-top: var(--spacing-1);
+  font-size: var(--font-size-xs);
+  color: var(--foreground-subtle);
+}
+.lui-timeline__desc {
+  margin-top: var(--spacing-1);
+  color: var(--foreground-muted);
+}
+
+/* ---- Rating ------------------------------------------------------------- */
+
+.lui-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-md);
+  color: var(--muted-default);
+  line-height: 1;
+}
+
+/* Star glyph — empty by default, primary when filled. */
+.lui-rating__star {
+  display: block;
+  fill: var(--muted-default);
+}
+.lui-rating__star--filled {
+  fill: var(--warning-default);
+}
+
+/* Interactive variant: bare buttons that only wrap a star. */
+.lui-rating--interactive {
+  gap: var(--spacing-1);
+}
+.lui-rating__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.lui-rating__button:focus-visible {
+  outline: 2px solid var(--primary-default);
+  outline-offset: 2px;
+}
+.lui-rating__button:hover .lui-rating__star {
+  fill: var(--warning-default);
+}

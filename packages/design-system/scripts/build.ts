@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, copyFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
@@ -33,7 +33,16 @@ const catalog = { components, previews: Object.keys(components) };
 writeFileSync(join(dist, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 writeFileSync(join(dist, 'tokens.json'), JSON.stringify(flatTokens, null, 2) + '\n');
 writeFileSync(join(dist, 'theme.css'), themeStylesheet());
-copyFileSync(join(root, 'src/styles/index.css'), join(dist, 'styles.css'));
+
+// Inline the component stylesheet: index.css `@import`s per-group files (which Next resolves in dev),
+// but the shipped dist/styles.css must be a single self-contained file.
+const stylesDir = join(root, 'src/styles');
+const indexCss = readFileSync(join(stylesDir, 'index.css'), 'utf8');
+const bundledCss = indexCss.replace(
+  /@import\s+'\.\/([^']+)';\n?/g,
+  (_m, file: string) => readFileSync(join(stylesDir, file), 'utf8') + '\n',
+);
+writeFileSync(join(dist, 'styles.css'), bundledCss);
 
 console.log(
   `design-system build: ${Object.keys(components).length} catalog components, ${Object.keys(flatTokens).length} tokens → dist/`,
