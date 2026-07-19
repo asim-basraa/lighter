@@ -166,6 +166,7 @@ export {
   catalog,
   catalogDefs,
   components,
+  ELEMENT_ID_ATTR,
   type PreviewSpec,
   type CatalogComponent,
 } from './registry/index.js';
