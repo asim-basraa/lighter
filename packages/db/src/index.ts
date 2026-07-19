@@ -11,10 +11,28 @@ export {
   mintToken,
   resolveProjectByToken,
   revokeToken,
+  revokeTokenById,
+  listTokens,
   hashToken,
   type Project,
   type MintedToken,
+  type TokenInfo,
 } from './projects.js';
+export {
+  upsertUser,
+  syncUserOnLogin,
+  getUserByEmail,
+  addMember,
+  getMembership,
+  listProjectsForUser,
+  listMembers,
+  createInvite,
+  listInvites,
+  type Role,
+  type User,
+  type Membership,
+  type Invite,
+} from './members.js';
 export { createShare, resolveShare, latestShareForScreen } from './shares.js';
 export type { Share, ShareTarget, ResolvedShare } from './shares.js';
 export { getFlow, setFlow, type FlowLinkInput } from './flow.js';
@@ -40,6 +58,9 @@ export {
   ingestedCommits,
   projects,
   projectTokens,
+  users,
+  projectMembers,
+  projectInvites,
 } from './schema.js';
 export type {
   HealthCheck,
@@ -47,4 +68,7 @@ export type {
   InventorySnapshot,
   ProjectRow,
   ProjectTokenRow,
+  UserRow,
+  ProjectMemberRow,
+  ProjectInviteRow,
 } from './schema.js';

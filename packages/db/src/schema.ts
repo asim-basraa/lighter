@@ -178,3 +178,63 @@ export const projectTokens = sqliteTable('project_tokens', {
 });
 
 export type ProjectTokenRow = typeof projectTokens.$inferSelect;
+
+/**
+ * A local mirror of a Supabase-Auth user (#91). `id` is the Supabase user id (the JWT `sub`); the
+ * studio never stores passwords — Supabase owns the credential. We keep just enough (id + email) to
+ * attach a human to project memberships.
+ */
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type UserRow = typeof users.$inferSelect;
+
+/**
+ * Which users belong to which projects, and in what role (#91). Composite PK (project, user) so a
+ * user appears once per project; role is 'owner' or 'member'. This is what makes a project a team
+ * rather than a single token holder — a user can be a member of many projects.
+ */
+export const projectMembers = sqliteTable(
+  'project_members',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: text('role').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.projectId, t.userId] }) }),
+);
+
+export type ProjectMemberRow = typeof projectMembers.$inferSelect;
+
+/**
+ * A pending invitation to join a project (#91). An owner can invite by email before the invitee has
+ * a Supabase account; on their first login the invite is materialized into `project_members`.
+ */
+export const projectInvites = sqliteTable(
+  'project_invites',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    email: text('email').notNull(),
+    role: text('role').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.projectId, t.email] }) }),
+);
+
+export type ProjectInviteRow = typeof projectInvites.$inferSelect;

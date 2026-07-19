@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from './client.js';
 import { projects, projectTokens } from './schema.js';
 
@@ -107,6 +107,39 @@ export async function revokeToken(db: Db, rawToken: string, secret?: string): Pr
   const result = await db
     .delete(projectTokens)
     .where(eq(projectTokens.tokenHash, hashToken(rawToken, secret)))
+    .returning();
+  return result.length > 0;
+}
+
+/** Metadata for a project's tokens (never the raw token). `id` is the stored hash — safe to show an
+ * owner, and usable to revoke, but not to authenticate. */
+export interface TokenInfo {
+  id: string;
+  label: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/** List a project's tokens (metadata only). */
+export async function listTokens(db: Db, projectId: string): Promise<TokenInfo[]> {
+  const rows = await db.select().from(projectTokens).where(eq(projectTokens.projectId, projectId));
+  return rows.map((r) => ({
+    id: r.tokenHash,
+    label: r.label,
+    createdAt: r.createdAt,
+    lastUsedAt: r.lastUsedAt ?? null,
+  }));
+}
+
+/** Revoke a token by its id (the stored hash), scoped to a project. Returns whether it existed. */
+export async function revokeTokenById(
+  db: Db,
+  projectId: string,
+  tokenId: string,
+): Promise<boolean> {
+  const result = await db
+    .delete(projectTokens)
+    .where(and(eq(projectTokens.tokenHash, tokenId), eq(projectTokens.projectId, projectId)))
     .returning();
   return result.length > 0;
 }

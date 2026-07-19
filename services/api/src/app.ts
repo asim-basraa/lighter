@@ -26,6 +26,7 @@ import { registerFlowRoutes } from './flow.js';
 import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import { requireProject, type AuthConfig } from './auth.js';
+import { registerProjectAdminRoutes } from './projectAdmin.js';
 import type { ProjectStores } from './projectStores.js';
 import type { ScreenScope } from './screenScope.js';
 import type { Notifier } from './notifier.js';
@@ -303,7 +304,9 @@ export function createApp(deps: AppDeps): Hono {
 
   // Adapt an inventory model into the catalog shape the spec validator expects.
   const catalogFromModel = (model: InventoryModel | null) =>
-    model ? Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }])) : null;
+    model
+      ? Object.fromEntries(model.components.map((comp) => [comp.name, { props: comp.props }]))
+      : null;
 
   // Screen + spec-version CRUD (git-backed). Two mutually-exclusive modes, so no route collision:
   //  - `specStore`: a single global store (single-tenant; every existing test uses this).
@@ -334,7 +337,9 @@ export function createApp(deps: AppDeps): Hono {
     // credential and encodes its own project.
     const resolveStore = (c: Context) => provider.forProject(c.get('project').id);
     const resolveCatalog = async (c: Context) =>
-      catalogFromModel((await latestInventory(deps.db, c.get('project').id)) as InventoryModel | null);
+      catalogFromModel(
+        (await latestInventory(deps.db, c.get('project').id)) as InventoryModel | null,
+      );
     // Scoped scope: the DB key is `<projectId>:<screenId>`, so every screenId-keyed table isolates
     // per project with no schema change; a share token recovers its project by splitting the key.
     const scopedScope: ScreenScope = {
@@ -345,7 +350,11 @@ export function createApp(deps: AppDeps): Hono {
         const i = key.indexOf(':');
         if (i <= 0) return null;
         const projectId = key.slice(0, i);
-        return { store: await provider.forProject(projectId), screenId: key.slice(i + 1), projectId };
+        return {
+          store: await provider.forProject(projectId),
+          screenId: key.slice(i + 1),
+          projectId,
+        };
       },
     };
     registerScreenRoutes(app, resolveStore, resolveCatalog);
@@ -406,6 +415,10 @@ export function createApp(deps: AppDeps): Hono {
       await saveInventory(deps.db, model, project.id);
       return c.json({ status: 'ok', model }, 201);
     });
+
+    // The project/team-management surface (#91): create/list projects, invite members, mint/revoke
+    // tokens. Human (Supabase JWT) lane — mounted alongside the machine-token routes above.
+    registerProjectAdminRoutes(app, deps.auth);
   }
 
   return app;
