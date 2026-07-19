@@ -1,4 +1,4 @@
-import { apiBaseUrl } from './inventory.js';
+import { apiBaseUrl, apiToken, scopedInit } from './inventory.js';
 import type { SpecRecord } from './usage.js';
 
 /** Saved specs plus a load error, if any — mirrors `LoadedInventory` so pages degrade consistently. */
@@ -10,9 +10,16 @@ export interface LoadedSpecs {
 /** A zero-arg request to the specs endpoint, returning a `fetch`-style Response. */
 export type SpecsFetcher = () => Response | Promise<Response>;
 
-/** The default production fetcher: `GET {LIGHTER_API_URL}/specs`, uncached (usage must be current). */
-export function apiSpecsFetcher(baseUrl: string = apiBaseUrl()): SpecsFetcher {
-  return () => fetch(new URL('/specs', baseUrl), { cache: 'no-store' });
+/**
+ * The default production fetcher: `GET {LIGHTER_API_URL}/specs`, uncached (usage must be current).
+ * `/specs` is project-scoped and requires a bearer token when the API is multi-tenant; the token
+ * (from `LIGHTER_TOKEN`) is attached when configured, and omitted for a single-tenant/dev API.
+ */
+export function apiSpecsFetcher(
+  baseUrl: string = apiBaseUrl(),
+  token: string | undefined = apiToken(),
+): SpecsFetcher {
+  return () => fetch(new URL('/specs', baseUrl), scopedInit(token));
 }
 
 /**
