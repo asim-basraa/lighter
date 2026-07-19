@@ -13,7 +13,9 @@ RUN apt-get update \
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# tsconfig.base.json is extended by services/web/tsconfig.json — Next's build reads it, so it must
+# be present at the repo root inside the image.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
 COPY packages ./packages
 COPY services/web ./services/web
 
