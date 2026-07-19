@@ -1,0 +1,130 @@
+{
+  "root": {
+    "type": "PageShell",
+    "props": {
+      "title": "Aurora"
+    },
+    "children": [
+      {
+        "type": "Breadcrumb",
+        "props": {
+          "items": [
+            {
+              "label": "Shop",
+              "href": "#"
+            },
+            {
+              "label": "Footwear",
+              "href": "#"
+            },
+            {
+              "label": "Slate Runner"
+            }
+          ]
+        },
+        "children": []
+      },
+      {
+        "type": "Grid",
+        "props": {
+          "columns": 2,
+          "gap": "8"
+        },
+        "children": [
+          {
+            "type": "Card",
+            "props": {
+              "title": "Slate Runner"
+            },
+            "children": [
+              {
+                "type": "Text",
+                "props": {
+                  "content": "Product image",
+                  "tone": "subtle"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "type": "Stack",
+            "props": {
+              "direction": "vertical",
+              "gap": "4"
+            },
+            "children": [
+              {
+                "type": "Heading",
+                "props": {
+                  "content": "Slate Runner",
+                  "level": 1
+                },
+                "children": []
+              },
+              {
+                "type": "Text",
+                "props": {
+                  "content": "$128",
+                  "variant": "title"
+                },
+                "children": []
+              },
+              {
+                "type": "Text",
+                "props": {
+                  "content": "A lightweight everyday runner in cool slate with a breathable knit upper.",
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "3"
+                },
+                "children": [
+                  {
+                    "type": "Badge",
+                    "props": {
+                      "label": "In stock",
+                      "tone": "success",
+                      "variant": "soft"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Badge",
+                    "props": {
+                      "label": "Free returns",
+                      "tone": "neutral",
+                      "variant": "soft"
+                    },
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "type": "Button",
+                "props": {
+                  "label": "Add to cart",
+                  "variant": "primary"
+                },
+                "children": []
+              },
+              {
+                "type": "Button",
+                "props": {
+                  "label": "Buy now",
+                  "variant": "secondary"
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

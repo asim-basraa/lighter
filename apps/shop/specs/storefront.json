@@ -1,0 +1,167 @@
+{
+  "root": {
+    "type": "PageShell",
+    "props": {
+      "title": "Aurora — Shop"
+    },
+    "children": [
+      {
+        "type": "Heading",
+        "props": {
+          "content": "New this season",
+          "level": 2
+        },
+        "children": []
+      },
+      {
+        "type": "Text",
+        "props": {
+          "content": "Considered essentials in cool blues and greys.",
+          "tone": "muted"
+        },
+        "children": []
+      },
+      {
+        "type": "Grid",
+        "props": {
+          "columns": 3,
+          "gap": "6"
+        },
+        "children": [
+          {
+            "type": "Card",
+            "props": {
+              "title": "Slate Runner"
+            },
+            "children": [
+              {
+                "type": "Text",
+                "props": {
+                  "content": "Lightweight everyday runner, knit upper.",
+                  "variant": "small",
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "4"
+                },
+                "children": [
+                  {
+                    "type": "Badge",
+                    "props": {
+                      "label": "$128",
+                      "tone": "primary",
+                      "variant": "soft"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Button",
+                    "props": {
+                      "label": "Add to cart",
+                      "variant": "primary",
+                      "size": "sm"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Card",
+            "props": {
+              "title": "Harbor Jacket"
+            },
+            "children": [
+              {
+                "type": "Text",
+                "props": {
+                  "content": "Water-repellent shell in deep indigo.",
+                  "variant": "small",
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "4"
+                },
+                "children": [
+                  {
+                    "type": "Badge",
+                    "props": {
+                      "label": "$240",
+                      "tone": "primary",
+                      "variant": "soft"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Button",
+                    "props": {
+                      "label": "Add to cart",
+                      "variant": "primary",
+                      "size": "sm"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Card",
+            "props": {
+              "title": "Mist Tee"
+            },
+            "children": [
+              {
+                "type": "Text",
+                "props": {
+                  "content": "Soft cotton tee in cool grey.",
+                  "variant": "small",
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "4"
+                },
+                "children": [
+                  {
+                    "type": "Badge",
+                    "props": {
+                      "label": "$48",
+                      "tone": "primary",
+                      "variant": "soft"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Button",
+                    "props": {
+                      "label": "Add to cart",
+                      "variant": "primary",
+                      "size": "sm"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
