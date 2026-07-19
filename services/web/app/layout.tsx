@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { tokenRootCss } from '../lib/tokenCss.js';
 import { supabaseEnv } from '../lib/supabase/env.js';
+import '@lighter/design-system/styles.css';
 import './globals.css';
 
 export const metadata: Metadata = {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { SpecView, type PreviewSpec } from 'lighter-example/ui';
+import { SpecView, type PreviewSpec } from '@lighter/design-system';
 import { toJsonRender } from '@lighter/spec/render';
 import type { SharedVersion } from '../lib/share.js';
 import { VersionBanner } from './VersionBanner.js';
