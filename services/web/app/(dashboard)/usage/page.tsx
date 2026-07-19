@@ -1,5 +1,6 @@
-import { loadInventory } from '../../../lib/inventory.js';
-import { loadSpecs } from '../../../lib/specs.js';
+import { loadInventory, apiInventoryFetcher } from '../../../lib/inventory.js';
+import { loadSpecs, apiSpecsFetcher } from '../../../lib/specs.js';
+import { apiAuthHeaders } from '../../../lib/session.js';
 import { UsageView } from '../../../components/UsageView.js';
 import { DashboardView } from '../../../components/DashboardView.js';
 
@@ -10,7 +11,11 @@ import { DashboardView } from '../../../components/DashboardView.js';
 export const dynamic = 'force-dynamic';
 
 export default async function UsagePage() {
-  const [inventory, specs] = await Promise.all([loadInventory(), loadSpecs()]);
+  const headers = await apiAuthHeaders();
+  const [inventory, specs] = await Promise.all([
+    loadInventory(apiInventoryFetcher(undefined, headers)),
+    loadSpecs(apiSpecsFetcher(undefined, headers)),
+  ]);
   const error = inventory.error ?? specs.error;
   return (
     <DashboardView title="Usage" error={error}>

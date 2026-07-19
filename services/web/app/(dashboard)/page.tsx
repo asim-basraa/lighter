@@ -1,4 +1,5 @@
-import { loadInventory } from '../../lib/inventory.js';
+import { loadInventory, apiInventoryFetcher } from '../../lib/inventory.js';
+import { apiAuthHeaders } from '../../lib/session.js';
 import { ComponentGallery } from '../../components/ComponentGallery.js';
 import { DashboardView } from '../../components/DashboardView.js';
 
@@ -13,7 +14,9 @@ import { DashboardView } from '../../components/DashboardView.js';
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const { model, error } = await loadInventory();
+  const { model, error } = await loadInventory(
+    apiInventoryFetcher(undefined, await apiAuthHeaders()),
+  );
   return (
     <DashboardView title="Components" error={error}>
       <ComponentGallery components={model?.components ?? []} health={model?.health ?? []} />

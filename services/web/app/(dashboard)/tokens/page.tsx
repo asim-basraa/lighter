@@ -1,4 +1,5 @@
-import { loadInventory } from '../../../lib/inventory.js';
+import { loadInventory, apiInventoryFetcher } from '../../../lib/inventory.js';
+import { apiAuthHeaders } from '../../../lib/session.js';
 import { TokenInventory } from '../../../components/TokenInventory.js';
 import { DashboardView } from '../../../components/DashboardView.js';
 
@@ -6,7 +7,9 @@ import { DashboardView } from '../../../components/DashboardView.js';
 export const dynamic = 'force-dynamic';
 
 export default async function TokensPage() {
-  const { model, error } = await loadInventory();
+  const { model, error } = await loadInventory(
+    apiInventoryFetcher(undefined, await apiAuthHeaders()),
+  );
   return (
     <DashboardView title="Tokens" error={error}>
       <TokenInventory tokens={model?.tokens ?? []} />
