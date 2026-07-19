@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { ProjectStores } from './projectStores.js';
 import { bootstrapProject } from './bootstrap.js';
 import { WebhookNotifier } from './notifier.js';
+import { supabaseVerifierFromEnv } from './jwt.js';
 
 /* c8 ignore start -- process entrypoint, behavior covered via createApp in app.test.ts */
 const { sqlite, db } = createClient(configFromEnv());
@@ -53,9 +54,12 @@ if (process.env.DESIGN_SYSTEM_REPO && !process.env.WEBHOOK_SECRET) {
   );
 }
 
-// Project bearer-auth (#87): the machine-auth lane for the CLI / GitHub Action. Always on; the token
-// signing secret comes from env (a stable value in prod so minted tokens keep validating).
-const auth = { db, tokenSecret: process.env.LIGHTER_TOKEN_SIGNING_SECRET };
+// Auth (#87 machine lane + #91 human lane). Project API tokens (CLI / GitHub Action) always work; the
+// Supabase JWT lane (studio login + team management) mounts only when Supabase Auth env is present.
+// The token signing secret must be stable in prod so minted tokens keep validating.
+const jwtVerifier = supabaseVerifierFromEnv(process.env);
+if (jwtVerifier) console.log('[auth] Supabase JWT lane enabled (studio login + team management)');
+const auth = { db, tokenSecret: process.env.LIGHTER_TOKEN_SIGNING_SECRET, jwtVerifier };
 
 const app = createApp({ db, storeProvider, specGenerator, notifier, designSystem, auth });
 const port = Number(process.env.PORT ?? 3000);
