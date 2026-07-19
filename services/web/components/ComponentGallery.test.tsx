@@ -21,11 +21,18 @@ describe('ComponentGallery', () => {
     }
   });
 
-  it('shows a no-preview note per card (design system ships no runtime preview-spec map)', () => {
-    // @lighter/design-system has no per-component preview specs (unlike lighter-example), so every
-    // card renders the schema + description and a "No preview available" note rather than a live mock.
+  it('renders a live preview per component (the Button preview is a real button)', () => {
     render(<ComponentGallery components={componentsFixture} />);
-    expect(screen.getAllByText(/no preview/i)).toHaveLength(componentsFixture.length);
+    // The design system's Button preview renders a real <button> carrying its label.
+    expect(screen.getByRole('button', { name: 'Click me' })).toBeTruthy();
+  });
+
+  it('renders a live preview scoped to its own card', () => {
+    render(<ComponentGallery components={componentsFixture} />);
+    const card = screen.getByRole('heading', { name: 'Card' }).closest('[data-component]');
+    expect(card).toBeTruthy();
+    // The Card preview renders its own title + body inside that card only.
+    expect(within(card as HTMLElement).getByText(/card body copy/i)).toBeTruthy();
   });
 
   it('shows a no-preview note when a component ships no preview spec', () => {
