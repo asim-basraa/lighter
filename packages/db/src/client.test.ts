@@ -1,7 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createClient } from './client.js';
 import { runMigrations, migrationsDir } from './migrate.js';
 import { insertHealthCheck, listHealthChecks } from './health.js';
+
+const dirs: string[] = [];
+afterEach(() => {
+  while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true });
+});
 
 describe('db round-trip', () => {
   it('inserts and reads a row back through the Drizzle query API', async () => {
@@ -27,6 +35,15 @@ describe('db round-trip', () => {
 
   it('rejects an unconfigured dialect at the documented swap point', () => {
     expect(() => createClient({ dialect: 'postgres', url: 'postgres://x' })).toThrow(/postgres/i);
+  });
+
+  it('creates a missing parent directory for the DB file (e.g. a fresh volume path)', () => {
+    const base = mkdtempSync(join(tmpdir(), 'lighter-dbdir-'));
+    dirs.push(base);
+    const nested = join(base, 'data', 'nested'); // does not exist yet
+    const { sqlite } = createClient({ dialect: 'sqlite', url: join(nested, 'lighter.db') });
+    expect(existsSync(nested)).toBe(true);
+    sqlite.close();
   });
 
   it('applies each migration once — the ledger makes re-runs a no-op', () => {
