@@ -5,6 +5,7 @@ const nextConfig = {
   // alongside keeps a single React binding through Next's server bundle.
   transpilePackages: [
     'lighter-example',
+    '@lighter/design-system',
     '@lighter/spec',
     '@json-render/core',
     '@json-render/react',

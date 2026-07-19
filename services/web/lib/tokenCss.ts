@@ -1,30 +1,24 @@
-import { tokens, type Tokens } from 'lighter-example/ui';
+import { flatTokens } from '@lighter/design-system';
 
 /**
- * Generate the design system's tokens as a `:root` custom-property block, dotted keys becoming
- * dashed variable names (`color.blue.500` → `--color-blue-500`). The web client inlines this instead
- * of importing lighter-example's built `dist/tokens.css`: `dist/` is a gitignored build artifact and
- * is not packed into the `file:` dependency copy, so importing it would break `next build`. Deriving
- * from the shared `tokens` object keeps a single source of truth with no build-order coupling.
+ * Generate the design system's tokens as a `:root` custom-property block, dotted keys becoming dashed
+ * variable names (`primary.default` → `--primary-default`, `color.blue.500` → `--color-blue-500`).
+ * The studio inlines this so its chrome and the rendered specs share one visual source — the blue/grey
+ * `@lighter/design-system` (swap its DTCG tokens and everything re-themes; see the design-system package).
+ *
+ * `flatTokens` is already flat, so no recursion is needed. We also emit `--space-N` aliases for
+ * `--spacing-N`: the studio chrome predates the design system's `spacing.*` naming and references
+ * `--space-*`, so aliasing keeps the chrome spacing intact with no chrome edits.
  */
-function flatten(obj: unknown, prefix = ''): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!obj || typeof obj !== 'object') return out;
-  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-    const key = prefix ? `${prefix}.${k}` : k;
-    if (typeof v === 'string') {
-      out[key] = v;
-    } else if (v && typeof v === 'object') {
-      Object.assign(out, flatten(v, key));
-    }
-  }
-  return out;
-}
-
-export function tokenRootCss(source: Tokens = tokens): string {
-  const flat = flatten(source);
-  const lines = Object.entries(flat).map(
+export function tokenRootCss(source: Record<string, string> = flatTokens): string {
+  const lines = Object.entries(source).map(
     ([key, value]) => `  --${key.replace(/\./g, '-')}: ${value};`,
   );
-  return `:root {\n${lines.join('\n')}\n}\n`;
+  const spaceAliases = Object.keys(source)
+    .filter((k) => k.startsWith('spacing.'))
+    .map((k) => {
+      const n = k.slice('spacing.'.length);
+      return `  --space-${n}: var(--spacing-${n});`;
+    });
+  return `:root {\n${[...lines, ...spaceAliases].join('\n')}\n}\n`;
 }
