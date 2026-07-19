@@ -58,7 +58,18 @@ if (process.env.DESIGN_SYSTEM_REPO && !process.env.WEBHOOK_SECRET) {
 // Supabase JWT lane (studio login + team management) mounts only when Supabase Auth env is present.
 // The token signing secret must be stable in prod so minted tokens keep validating.
 const jwtVerifier = supabaseVerifierFromEnv(process.env);
-if (jwtVerifier) console.log('[auth] Supabase JWT lane enabled (studio login + team management)');
+// Log the auth mode explicitly on boot so a deployment is self-diagnosing (is the JWT lane on, and if
+// not, is a Supabase var actually reaching the runtime env?). Values are never logged.
+if (jwtVerifier) {
+  console.log('[auth] Supabase JWT lane ENABLED (studio login + team management)');
+} else {
+  const anySupabaseVar =
+    process.env.SUPABASE_URL || process.env.SUPABASE_JWKS_URL || process.env.SUPABASE_JWT_SECRET;
+  const reason = anySupabaseVar
+    ? 'a Supabase var is set but empty/incomplete'
+    : 'no SUPABASE_URL / SUPABASE_JWKS_URL / SUPABASE_JWT_SECRET in the runtime env';
+  console.log(`[auth] Supabase JWT lane DISABLED — ${reason}; machine-token lane only`);
+}
 const auth = { db, tokenSecret: process.env.LIGHTER_TOKEN_SIGNING_SECRET, jwtVerifier };
 
 const app = createApp({ db, storeProvider, specGenerator, notifier, designSystem, auth });
