@@ -20,6 +20,14 @@ COPY packages ./packages
 COPY services/web ./services/web
 
 RUN pnpm install --filter "@lighter/web..." --frozen-lockfile=false
+
+# NEXT_PUBLIC_* must be present at BUILD time — Next inlines them into the client + middleware bundle.
+# Railway passes service variables as Docker build args, but only for ARGs the Dockerfile declares;
+# promote them to ENV so `next build` sees them. Absent (e.g. local build) → studio runs pre-auth.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 RUN pnpm --filter @lighter/web build
 
 ENV NODE_ENV=production
