@@ -1,12 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { SpecView, type PreviewSpec } from '@lighter/design-system';
-
-// @lighter/design-system ships no per-component preview-spec map (unlike lighter-example), so the
-// gallery renders schema + description and a "No preview available" note. Component previews for the
-// rich design system are a follow-up (would need authored example specs per component).
-const previews: Record<string, PreviewSpec> = {};
+import { SpecView, previews, type PreviewSpec } from '@lighter/design-system';
 import type { InventoryComponent, HealthFinding } from '../lib/inventory.js';
 import { componentFindings } from '../lib/health.js';
 import { PropsTable } from './PropsTable.js';

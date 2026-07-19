@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
 import { catalogDefs } from '../src/registry/catalog-defs.js';
+import { previews } from '../src/registry/previews.js';
 import { objectToJsonSchema } from '../src/schema/zodToJsonSchema.js';
 import { flatTokens, themeStylesheet } from '../src/tokens/index.js';
 
@@ -28,7 +29,9 @@ for (const d of catalogDefs) {
     props: objectToJsonSchema(d.props as z.ZodObject<z.ZodRawShape>),
   };
 }
-const catalog = { components, previews: Object.keys(components) };
+// Only components that actually ship a preview spec are listed, so the `missing-preview` health
+// check reflects reality rather than asserting every component has one.
+const catalog = { components, previews: Object.keys(previews) };
 
 writeFileSync(join(dist, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 writeFileSync(join(dist, 'tokens.json'), JSON.stringify(flatTokens, null, 2) + '\n');

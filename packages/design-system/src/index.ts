@@ -169,3 +169,4 @@ export {
   type PreviewSpec,
   type CatalogComponent,
 } from './registry/index.js';
+export { previews } from './registry/previews.js';
