@@ -3,11 +3,27 @@ import { createClient, configFromEnv, runMigrations } from '@lighter/db';
 import { AnthropicLlmClient } from '@lighter/generation';
 import { createApp } from './app.js';
 import { ProjectStores } from './projectStores.js';
+import { bootstrapProject } from './bootstrap.js';
 import { WebhookNotifier } from './notifier.js';
 
 /* c8 ignore start -- process entrypoint, behavior covered via createApp in app.test.ts */
 const { sqlite, db } = createClient(configFromEnv());
 runMigrations(sqlite);
+
+// First-deploy usability: seed a project + API token when LIGHTER_BOOTSTRAP_PROJECT is set. The token
+// is logged ONCE on creation (grab it from the deploy logs, then use it as LIGHTER_TOKEN in the CLI).
+if (process.env.LIGHTER_BOOTSTRAP_PROJECT) {
+  const seed = await bootstrapProject(
+    db,
+    process.env.LIGHTER_BOOTSTRAP_PROJECT,
+    process.env.LIGHTER_TOKEN_SIGNING_SECRET,
+  );
+  console.log(
+    seed.created
+      ? `[bootstrap] project "${seed.project.id}" created — LIGHTER_TOKEN=${seed.token} (shown once; save it)`
+      : `[bootstrap] project "${seed.project.id}" already exists`,
+  );
+}
 
 // Multi-tenant: each project's screens + spec versions live in their own git repo under
 // SPECS_DIR/<projectId> (default ./.lighter-specs). Stores initialize lazily per project on first use.
