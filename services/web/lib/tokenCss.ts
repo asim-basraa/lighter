@@ -1,24 +1,28 @@
-import { flatTokens } from '@lighter/design-system';
+import { themeStylesheet, flatTokens } from '@lighter/design-system';
 
 /**
- * Generate the design system's tokens as a `:root` custom-property block, dotted keys becoming dashed
- * variable names (`primary.default` → `--primary-default`, `color.blue.500` → `--color-blue-500`).
- * The studio inlines this so its chrome and the rendered specs share one visual source — the blue/grey
- * `@lighter/design-system` (swap its DTCG tokens and everything re-themes; see the design-system package).
+ * The design system's own token stylesheet, plus back-compat aliases for the studio chrome (#158).
  *
- * `flatTokens` is already flat, so no recursion is needed. We also emit `--space-N` aliases for
- * `--spacing-N`: the studio chrome predates the design system's `spacing.*` naming and references
- * `--space-*`, so aliasing keeps the chrome spacing intact with no chrome edits.
+ * The design system OWNS this CSS: `themeStylesheet()` expands DTCG composite tokens into the exact
+ * custom properties its component CSS consumes (`--text-heading-font-size`, …) and ships the
+ * dark-theme block. The studio used to flatten `flatTokens` itself, which emitted camelCase
+ * (`--text-heading-fontSize`); the components expect kebab-case, so every rule built on a composite
+ * typography token silently fell back to inherited 16px/400 — a reviewed screen did NOT match what a
+ * consumer app renders. Deriving from the design system keeps a single source of truth.
+ *
+ * The chrome predates the design system's naming and references `--fontSize-*` / `--space-*`; alias
+ * those to the canonical `--font-size-*` / `--spacing-*` rather than rewriting every inline style.
  */
-export function tokenRootCss(source: Record<string, string> = flatTokens): string {
-  const lines = Object.entries(source).map(
-    ([key, value]) => `  --${key.replace(/\./g, '-')}: ${value};`,
-  );
-  const spaceAliases = Object.keys(source)
-    .filter((k) => k.startsWith('spacing.'))
-    .map((k) => {
-      const n = k.slice('spacing.'.length);
-      return `  --space-${n}: var(--spacing-${n});`;
-    });
-  return `:root {\n${[...lines, ...spaceAliases].join('\n')}\n}\n`;
+export function tokenRootCss(): string {
+  const aliases: string[] = [];
+  for (const key of Object.keys(flatTokens)) {
+    if (key.startsWith('fontSize.')) {
+      const step = key.slice('fontSize.'.length);
+      aliases.push(`  --fontSize-${step}: var(--font-size-${step});`);
+    } else if (key.startsWith('spacing.')) {
+      const step = key.slice('spacing.'.length);
+      aliases.push(`  --space-${step}: var(--spacing-${step});`);
+    }
+  }
+  return `${themeStylesheet()}\n:root {\n${aliases.join('\n')}\n}\n`;
 }
