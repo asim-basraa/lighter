@@ -168,14 +168,22 @@ describe('json-render isolation (AC3)', () => {
     // Walk every .ts under packages/ and services/ and assert the json-render import lives in
     // exactly one file — the serializer boundary. Locks the isolation invariant.
     //
-    // `design-system` is excluded: it is a standalone json-render-based design system (it ships a
-    // registry), not part of Lighter's serializer-agnostic core, so it legitimately uses json-render.
+    // `design-system` and `lighter-example` are excluded: each is a standalone json-render-based
+    // design system (it ships a registry), not part of Lighter's serializer-agnostic core, so it
+    // legitimately imports json-render. (lighter-example is vendored in-repo since #130.)
     const root = fileURLToPath(new URL('../../../', import.meta.url));
     const offenders: string[] = [];
+    const skipDirs = [
+      'node_modules',
+      'dist',
+      '.next',
+      'coverage',
+      'design-system',
+      'lighter-example',
+    ];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (['node_modules', 'dist', '.next', 'coverage', 'design-system'].includes(entry.name))
-          continue;
+        if (skipDirs.includes(entry.name)) continue;
         const full = join(dir, entry.name);
         if (entry.isDirectory()) walk(full);
         else if (
