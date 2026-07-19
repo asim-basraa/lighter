@@ -1,27 +1,27 @@
 {
-  "$description": "Semantic tokens — the themeable surface. Components reference ONLY these (never raw primitives). Re-point these aliases (or swap the primitives) and the whole system re-themes. Light theme.",
+  "$description": "Semantic tokens — the themeable surface. Components reference ONLY these (never raw primitives). Re-point these aliases (or swap the primitives) and the whole system re-themes. Light theme. Brand: blue primary + slate (blue-grey) neutrals + indigo accent.",
   "background": {
     "$type": "color",
     "canvas": { "$value": "{color.white}" },
-    "subtle": { "$value": "{color.neutral.50}" },
-    "muted": { "$value": "{color.neutral.100}" },
-    "emphasis": { "$value": "{color.neutral.900}" },
+    "subtle": { "$value": "{color.slate.50}" },
+    "muted": { "$value": "{color.slate.100}" },
+    "emphasis": { "$value": "{color.slate.900}" },
     "overlay": { "$value": "rgb(0 0 0 / 0.5)" }
   },
   "foreground": {
     "$type": "color",
-    "default": { "$value": "{color.neutral.900}" },
-    "muted": { "$value": "{color.neutral.500}" },
-    "subtle": { "$value": "{color.neutral.400}" },
+    "default": { "$value": "{color.slate.900}" },
+    "muted": { "$value": "{color.slate.500}" },
+    "subtle": { "$value": "{color.slate.400}" },
     "onEmphasis": { "$value": "{color.white}" }
   },
   "border": {
     "$type": "color",
-    "default": { "$value": "{color.neutral.200}" },
-    "strong": { "$value": "{color.neutral.300}" },
-    "subtle": { "$value": "{color.neutral.100}" }
+    "default": { "$value": "{color.slate.200}" },
+    "strong": { "$value": "{color.slate.300}" },
+    "subtle": { "$value": "{color.slate.100}" }
   },
-  "input": { "$type": "color", "border": { "$value": "{color.neutral.300}" } },
+  "input": { "$type": "color", "border": { "$value": "{color.slate.300}" } },
   "ring": { "$type": "color", "default": { "$value": "{color.blue.500}" } },
   "primary": {
     "$type": "color",
@@ -33,22 +33,22 @@
   },
   "secondary": {
     "$type": "color",
-    "default": { "$value": "{color.neutral.100}" },
-    "hover": { "$value": "{color.neutral.200}" },
-    "active": { "$value": "{color.neutral.300}" },
-    "foreground": { "$value": "{color.neutral.900}" }
+    "default": { "$value": "{color.slate.100}" },
+    "hover": { "$value": "{color.slate.200}" },
+    "active": { "$value": "{color.slate.300}" },
+    "foreground": { "$value": "{color.slate.900}" }
   },
   "accent": {
     "$type": "color",
-    "default": { "$value": "{color.violet.600}" },
-    "hover": { "$value": "{color.violet.700}" },
-    "subtle": { "$value": "{color.violet.50}" },
+    "default": { "$value": "{color.indigo.600}" },
+    "hover": { "$value": "{color.indigo.700}" },
+    "subtle": { "$value": "{color.indigo.50}" },
     "foreground": { "$value": "{color.white}" }
   },
   "muted": {
     "$type": "color",
-    "default": { "$value": "{color.neutral.100}" },
-    "foreground": { "$value": "{color.neutral.500}" }
+    "default": { "$value": "{color.slate.100}" },
+    "foreground": { "$value": "{color.slate.500}" }
   },
   "destructive": {
     "$type": "color",
@@ -67,7 +67,7 @@
     "$type": "color",
     "default": { "$value": "{color.amber.500}" },
     "subtle": { "$value": "{color.amber.50}" },
-    "foreground": { "$value": "{color.neutral.900}" }
+    "foreground": { "$value": "{color.slate.900}" }
   },
   "info": {
     "$type": "color",
@@ -78,12 +78,12 @@
   "card": {
     "$type": "color",
     "background": { "$value": "{color.white}" },
-    "foreground": { "$value": "{color.neutral.900}" }
+    "foreground": { "$value": "{color.slate.900}" }
   },
   "popover": {
     "$type": "color",
     "background": { "$value": "{color.white}" },
-    "foreground": { "$value": "{color.neutral.900}" }
+    "foreground": { "$value": "{color.slate.900}" }
   },
   "radius": {
     "$type": "dimension",
