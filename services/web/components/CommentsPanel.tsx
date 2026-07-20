@@ -21,6 +21,7 @@ export function CommentsPanel({
   initialComments,
   loadError = null,
   submit = postComment,
+  bare = false,
 }: {
   token: string;
   elements: SpecElement[];
@@ -28,6 +29,8 @@ export function CommentsPanel({
   /** Set when the initial comment load failed, so the panel says so instead of "no comments yet". */
   loadError?: string | null;
   submit?: SubmitFn;
+  /** Drop the sidebar chrome (border/background/width) so an overlay host can supply its own (#160). */
+  bare?: boolean;
 }) {
   const [comments, setComments] = useState(initialComments);
   const [elementId, setElementId] = useState(elements[0]?.id ?? '');
@@ -62,8 +65,8 @@ export function CommentsPanel({
   }
 
   return (
-    <section style={panel} aria-label="Review comments">
-      <h2 style={heading}>Comments</h2>
+    <section style={bare ? barePanel : panel} aria-label="Review comments">
+      {!bare && <h2 style={heading}>Comments</h2>}
 
       {loadError ? (
         <p style={muted}>Couldn’t load existing comments. You can still leave a new one below.</p>
@@ -166,6 +169,18 @@ const panel: CSSProperties = {
   background: 'var(--color-neutral-50)',
   minWidth: 300,
   maxWidth: 380,
+};
+
+/** Overlay host supplies the surface, so the panel contributes layout only (#160). */
+const barePanel: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-4)',
+  padding: 0,
+  background: 'transparent',
+  border: 'none',
+  minWidth: 0,
+  maxWidth: 'none',
 };
 
 const heading: CSSProperties = {
