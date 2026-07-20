@@ -10,17 +10,37 @@ import {
 import type { Spec } from '@lighter/spec';
 import { buildTokenCss, DEFAULT_EDITS, type TokenEdits } from '../lib/tokenOverrides.js';
 import { OriginPicker } from './OriginPicker.js';
+import { SpecTree } from './SpecTree.js';
+import { PropertyPanel } from './PropertyPanel.js';
 import type { PreviewOrigin } from '../lib/originRules.js';
+import {
+  nodeAt,
+  setProp,
+  insertChild,
+  removeAt,
+  moveWithinParent,
+  defaultNodeFor,
+  type Path,
+} from '../lib/specEdit.js';
+
+export interface CatalogComponent {
+  name: string;
+  slots: string[];
+  props: Record<string, unknown>;
+}
 
 /**
- * Drive a real running app from the studio (#166/#169/#171).
+ * Edit a screen against the REAL running app (#166).
  *
  * The iframe is the consumer app itself — its own routing, its own APIs, its own state. Lighter
  * pushes spec and token edits over `postMessage`; the app applies them in place. Nothing reloads, so
- * a cart stays full and a scroll position holds while you retune the design.
+ * a cart stays full and a scroll position holds while the design is retuned.
  *
- * Connection state is shown honestly. An app without the SDK, or on an incompatible protocol, says so
- * rather than presenting an inert rectangle the user has to debug from the console.
+ * Editing is structural, not textual: a component tree plus a property panel generated from the
+ * catalog's JSON Schema. Only *declared* props are editable — there is no arbitrary styling control,
+ * because per-instance overrides would stop specs being compositions of approved components.
+ *
+ * Edits land in a mutable draft; **Push version** promotes it to an immutable version for review.
  */
 export function LivePreview({
   screenId,
@@ -28,6 +48,7 @@ export function LivePreview({
   initialVersion,
   initialSpec,
   hasDraft = false,
+  catalog,
   origin,
   allowedOrigins,
   mixedContentBlocked,
@@ -38,6 +59,8 @@ export function LivePreview({
   initialSpec: Spec;
   /** True when `initialSpec` came from an unpushed draft rather than a stored version. */
   hasDraft?: boolean;
+  /** The ingested design system: what may be inserted, and the schema driving the property panel. */
+  catalog: CatalogComponent[];
   origin: string;
   allowedOrigins: PreviewOrigin[];
   mixedContentBlocked: boolean;
@@ -48,10 +71,10 @@ export function LivePreview({
   const [appPath, setAppPath] = useState<string | null>(null);
   const [frameError, setFrameError] = useState<string | null>(null);
 
-  const [specText, setSpecText] = useState(() => JSON.stringify(initialSpec, null, 2));
-  const [specError, setSpecError] = useState<string | null>(null);
+  const [spec, setSpec] = useState<Spec>(initialSpec);
+  const [selected, setSelected] = useState<Path | null>([]);
+  const [showJson, setShowJson] = useState(false);
   const [edits, setEdits] = useState<TokenEdits>(DEFAULT_EDITS);
-  const [live, setLive] = useState(true);
   const [draftState, setDraftState] = useState<'clean' | 'saving' | 'saved' | 'error'>(
     hasDraft ? 'saved' : 'clean',
   );
@@ -93,67 +116,43 @@ export function LivePreview({
 
   const tokenCss = useMemo(() => buildTokenCss(edits), [edits]);
 
-  // Token edits stream continuously — they're a stylesheet swap, so they're cheap enough to send on
-  // every change without debouncing.
+  // Token edits stream continuously — a stylesheet swap is about one frame, so no debounce.
   useEffect(() => {
     if (connection !== 'connected') return;
     post({ type: 'lighter:tokens', css: tokenCss });
   }, [tokenCss, connection, post]);
 
-  const applySpec = useCallback(
-    (text: string) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch (error) {
-        setSpecError(error instanceof Error ? error.message : 'Invalid JSON');
-        return;
-      }
-      setSpecError(null);
-      setFrameError(null);
-      post({ type: 'lighter:spec', screenId, version: null, spec: parsed });
-    },
-    [post, screenId],
-  );
-
-  // Live mode: apply as you type. Debounced, because a spec swap re-renders the tree — unlike tokens.
+  // Spec edits push to the frame promptly — this is the thing the author is watching.
   useEffect(() => {
-    if (!live || connection !== 'connected') return;
-    const id = setTimeout(() => applySpec(specText), 300);
+    if (connection !== 'connected') return;
+    const id = setTimeout(() => post({ type: 'lighter:spec', screenId, version: null, spec }), 120);
     return () => clearTimeout(id);
-  }, [specText, live, connection, applySpec]);
+  }, [spec, connection, post, screenId]);
 
   /**
-   * Persist edits to the screen's mutable DRAFT (#166), not a new version.
+   * Persist to the screen's mutable DRAFT, not a new version.
    *
-   * Versions stay immutable and meaningful — one per deliberate push — while the draft absorbs
-   * everything in between. Debounced well behind the preview push, because the frame updating is
-   * what the author is watching; the save is bookkeeping.
+   * Debounced well behind the preview push: the frame updating is what the author sees, the save is
+   * bookkeeping. Skipped while the spec still equals what was loaded, so opening a screen and
+   * touching nothing doesn't create a draft.
    */
   useEffect(() => {
-    if (specError) return;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(specText);
-    } catch {
-      return;
-    }
-    if (JSON.stringify(parsed) === JSON.stringify(initialSpec)) return;
+    if (spec === initialSpec) return;
     const id = setTimeout(async () => {
       setDraftState('saving');
       try {
         const res = await fetch(`/api/screens/${encodeURIComponent(screenId)}/draft`, {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ spec: parsed }),
+          body: JSON.stringify({ spec }),
         });
         setDraftState(res.ok ? 'saved' : 'error');
       } catch {
         setDraftState('error');
       }
-    }, 900);
+    }, 800);
     return () => clearTimeout(id);
-  }, [specText, specError, screenId, initialSpec]);
+  }, [spec, initialSpec, screenId]);
 
   /** Promote the draft to a new immutable version — the deliberate publishing act. */
   const push = useCallback(async () => {
@@ -161,9 +160,14 @@ export function LivePreview({
     const res = await fetch(`/api/screens/${encodeURIComponent(screenId)}/draft/promote`, {
       method: 'POST',
     });
-    const body = (await res.json().catch(() => ({}))) as { version?: number; message?: string };
+    const body = (await res.json().catch(() => ({}))) as {
+      version?: number;
+      message?: string;
+      issues?: unknown[];
+    };
     if (!res.ok) {
-      setPushError(body.message ?? 'Could not push a version.');
+      const detail = Array.isArray(body.issues) && body.issues.length ? ` (${body.issues.length} issue${body.issues.length === 1 ? '' : 's'})` : '';
+      setPushError((body.message ?? 'Could not push a version.') + detail);
       return;
     }
     setPushed(body.version ?? null);
@@ -178,10 +182,25 @@ export function LivePreview({
         return;
       }
       const body = (await res.json()) as { spec: Spec };
-      setSpecText(JSON.stringify(body.spec, null, 2));
+      setSpec(body.spec);
+      setSelected([]);
     },
     [screenId],
   );
+  const [specError, setSpecError] = useState<string | null>(null);
+
+  const schemaFor = useCallback(
+    (type: string) => catalog.find((c) => c.name === type)?.props,
+    [catalog],
+  );
+  const selectedNode = selected ? nodeAt(spec, selected) : null;
+
+  // Belt and braces alongside the no-op guard in specEdit: if a selection stops resolving (its node
+  // was deleted, or an ancestor moved), fall back to the root rather than holding a path that points
+  // at nothing.
+  useEffect(() => {
+    if (selected && !nodeAt(spec, selected)) setSelected([]);
+  }, [spec, selected]);
 
   return (
     <div style={shell}>
@@ -210,6 +229,48 @@ export function LivePreview({
           </p>
         )}
         {frameError && <p style={warn}>{frameError}</p>}
+        {catalog.length === 0 && (
+          <p style={warn}>
+            No design system ingested for this project, so components can’t be added and properties
+            can’t be edited. Run <code>lighter sync</code> first.
+          </p>
+        )}
+
+        <section style={group}>
+          <h2 style={groupTitle}>Structure</h2>
+          <SpecTree
+            spec={spec}
+            catalog={catalog}
+            selected={selected}
+            onSelect={setSelected}
+            onInsert={(parent, type) => {
+              setSpec((s) => insertChild(s, parent, defaultNodeFor(type, schemaFor(type))));
+              setSelected(parent);
+            }}
+            onRemove={(path) => {
+              setSpec((s) => removeAt(s, path));
+              setSelected([]);
+            }}
+            onMove={(path, delta) => setSpec((s) => moveWithinParent(s, path, delta))}
+          />
+        </section>
+
+        <section style={group}>
+          <h2 style={groupTitle}>
+            {selectedNode ? `${selectedNode.type} properties` : 'Properties'}
+          </h2>
+          {selectedNode ? (
+            <PropertyPanel
+              node={selectedNode}
+              propsSchema={schemaFor(selectedNode.type)}
+              onChange={(key, value) =>
+                setSpec((s) => (selected ? setProp(s, selected, key, value) : s))
+              }
+            />
+          ) : (
+            <p style={muted}>Select a component in the tree.</p>
+          )}
+        </section>
 
         <section style={group}>
           <h2 style={groupTitle}>Tokens</h2>
@@ -222,10 +283,11 @@ export function LivePreview({
           <button type="button" style={ghostBtn} onClick={() => setEdits(DEFAULT_EDITS)}>
             Reset tokens
           </button>
+          <p style={hint}>Token edits preview only — they don’t change the stored token set.</p>
         </section>
 
         <section style={group}>
-          <h2 style={groupTitle}>Spec</h2>
+          <h2 style={groupTitle}>Version</h2>
           <div style={versionRow}>
             {versions.map((v) => (
               <button
@@ -238,23 +300,7 @@ export function LivePreview({
               </button>
             ))}
           </div>
-          <label style={checkRow}>
-            <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} />
-            Apply as I type
-          </label>
-          <textarea
-            value={specText}
-            onChange={(e) => setSpecText(e.target.value)}
-            spellCheck={false}
-            style={editor}
-            aria-label="Screen spec JSON"
-          />
           {specError && <p style={warn}>{specError}</p>}
-          {!live && (
-            <button type="button" style={ghostBtn} onClick={() => applySpec(specText)}>
-              Apply to preview
-            </button>
-          )}
 
           <div style={pushRow}>
             <button type="button" style={primaryBtn} onClick={() => void push()}>
@@ -286,7 +332,11 @@ export function LivePreview({
             screenId={screenId}
             version={initialVersion}
           />
-          {appPath && <p style={muted}>at <code>{appPath}</code></p>}
+          {appPath && (
+            <p style={muted}>
+              at <code>{appPath}</code>
+            </p>
+          )}
           <div style={{ display: 'flex', gap: 6 }}>
             <button type="button" style={ghostBtn} onClick={() => post({ type: 'lighter:refresh' })}>
               Refresh data
@@ -296,6 +346,15 @@ export function LivePreview({
             </button>
           </div>
         </section>
+
+        <section style={group}>
+          <button type="button" style={ghostBtn} onClick={() => setShowJson((v) => !v)}>
+            {showJson ? 'Hide' : 'Show'} spec JSON
+          </button>
+          {showJson && (
+            <textarea readOnly value={JSON.stringify(spec, null, 2)} style={jsonView} spellCheck={false} />
+          )}
+        </section>
       </aside>
 
       <div style={stage}>
@@ -304,8 +363,6 @@ export function LivePreview({
           src={origin}
           title={`Live preview of ${screenId}`}
           style={iframeStyle}
-          // The previewed app is first-party-ish but still separate: allow it to run and navigate,
-          // not to break out of the frame or trigger downloads.
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
       </div>
@@ -314,12 +371,13 @@ export function LivePreview({
 }
 
 function ConnectionPill({ state, sdkVersion }: { state: string; sdkVersion: string | null }) {
-  const tone =
-    state === 'connected' ? '#16a34a' : state === 'incompatible' ? '#dc2626' : '#94a3b8';
+  const tone = state === 'connected' ? '#16a34a' : state === 'incompatible' ? '#dc2626' : '#94a3b8';
   const label =
-    state === 'connected' ? `connected${sdkVersion ? ` · sdk ${sdkVersion}` : ''}`
-    : state === 'incompatible' ? 'incompatible'
-    : 'waiting';
+    state === 'connected'
+      ? `connected${sdkVersion ? ` · sdk ${sdkVersion}` : ''}`
+      : state === 'incompatible'
+        ? 'incompatible'
+        : 'waiting';
   return (
     <span style={{ ...pill, color: tone }} role="status">
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: tone }} />
@@ -355,21 +413,14 @@ function Range({
       <span>
         {label} <span style={muted}>{value.toFixed(2)}×</span>
       </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={0.05}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
+      <input type="range" min={min} max={max} step={0.05} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   );
 }
 
 const shell: CSSProperties = { display: 'flex', height: '100vh', overflow: 'hidden' };
 const rail: CSSProperties = {
-  width: 320,
+  width: 340,
   flexShrink: 0,
   borderRight: '1px solid var(--border-default, #e2e8f0)',
   padding: 'var(--space-4)',
@@ -401,18 +452,6 @@ const fieldRow: CSSProperties = {
   margin: '6px 0',
 };
 const colorInput: CSSProperties = { width: 40, height: 24, padding: 0, border: 0, background: 'none' };
-const editor: CSSProperties = {
-  width: '100%',
-  height: 240,
-  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-  fontSize: 11,
-  lineHeight: 1.5,
-  padding: 8,
-  borderRadius: 6,
-  border: '1px solid var(--border-default, #e2e8f0)',
-  resize: 'vertical',
-};
-const checkRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0' };
 const versionRow: CSSProperties = { display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' };
 const versionOff: CSSProperties = {
   padding: '2px 8px',
@@ -423,8 +462,8 @@ const versionOff: CSSProperties = {
   fontSize: 'var(--fontSize-xs)',
 };
 const versionOn: CSSProperties = { ...versionOff, borderColor: 'var(--primary-default, #2563eb)' };
+const pushRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 };
 const primaryBtn: CSSProperties = {
-  marginTop: 6,
   padding: '6px 12px',
   borderRadius: 6,
   border: 0,
@@ -442,14 +481,19 @@ const ghostBtn: CSSProperties = {
   cursor: 'pointer',
   fontSize: 'var(--fontSize-xs)',
 };
-const pushRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 };
-const hint: CSSProperties = {
+const jsonView: CSSProperties = {
+  width: '100%',
+  height: 200,
+  marginTop: 6,
+  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
   fontSize: 10,
-  color: 'var(--foreground-muted, #64748b)',
-  margin: '6px 0 0',
+  padding: 6,
+  borderRadius: 6,
+  border: '1px solid var(--border-default, #e2e8f0)',
 };
 const pill: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11 };
 const muted: CSSProperties = { color: 'var(--foreground-muted, #64748b)', fontSize: 'var(--fontSize-xs)' };
+const hint: CSSProperties = { fontSize: 10, color: 'var(--foreground-muted, #64748b)', margin: '6px 0 0' };
 const warn: CSSProperties = {
   background: 'var(--warning-subtle, #fffbeb)',
   border: '1px solid #fde68a',
