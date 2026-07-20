@@ -1,7 +1,7 @@
 import 'server-only';
 import { apiBaseUrl } from './inventory.js';
 import { apiAuthHeaders } from './session.js';
-import type { Spec } from '@lighter/spec';
+import { SpecSchema, type Spec } from '@lighter/spec';
 
 /** A screen as the API lists it. */
 export interface ScreenSummary {
@@ -60,7 +60,13 @@ export async function getVersionSpec(
   id: string,
   version: number,
 ): Promise<{ version: number; spec: Spec } | null> {
-  return get(`/screens/${encodeURIComponent(id)}/versions/${version}`);
+  const res = await get<{ version: number; spec: unknown }>(
+    `/screens/${encodeURIComponent(id)}/versions/${version}`,
+  );
+  if (!res) return null;
+  // Parse at the boundary. A spec arrives here as plain JSON over HTTP, so this is the only place
+  // stable element ids get assigned (#184) — and it also migrates a spec stored by an older API.
+  return { version: res.version, spec: SpecSchema.parse(res.spec) };
 }
 
 /**
@@ -70,8 +76,8 @@ export async function getVersionSpec(
  * immutable version on push.
  */
 export async function getDraft(id: string): Promise<Spec | null> {
-  const res = await get<{ spec: Spec }>(`/screens/${encodeURIComponent(id)}/draft`);
-  return res?.spec ?? null;
+  const res = await get<{ spec: unknown }>(`/screens/${encodeURIComponent(id)}/draft`);
+  return res ? SpecSchema.parse(res.spec) : null;
 }
 
 /** A version's approval state. */

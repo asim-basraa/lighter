@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -9,13 +10,13 @@ import { createApp } from './app.js';
 import { SpecStore } from './specStore.js';
 
 // root PageShell (el-0) → Button (el-1): the valid anchor ids for this version are el-0, el-1.
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Checkout' },
     children: [{ type: 'Button', props: { label: 'Pay', variant: 'primary' }, children: [] }],
   },
-};
+});
 
 const fixtureRepo = join(
   dirname(fileURLToPath(import.meta.url)),

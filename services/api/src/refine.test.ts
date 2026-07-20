@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient, runMigrations } from '@lighter/db';
 import type { LlmClient } from '@lighter/generation';
+import { SpecSchema } from '@lighter/spec';
 import { createApp } from './app.js';
 import { SpecStore } from './specStore.js';
 
@@ -126,7 +127,11 @@ describe('POST /screens/:id/refine (#19)', () => {
     const meta = await (await app.request('/screens/home')).json();
     expect(meta).toMatchObject({ versions: [1, 2] });
     const v2 = await (await app.request('/screens/home/versions/2')).json();
-    expect((v2 as { spec: typeof refinedJson }).spec).toEqual(JSON.parse(refinedJson));
+    // The generator emits an id-less spec; ids are assigned at the parse boundary like any other
+    // input (#184), so the stored version is the migrated form of what the model produced.
+    expect((v2 as { spec: typeof refinedJson }).spec).toEqual(
+      SpecSchema.parse(JSON.parse(refinedJson)),
+    );
   });
 
   it('422s when the refinement never validates', async () => {

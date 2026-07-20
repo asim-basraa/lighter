@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SpecStore, ScreenNotFoundError, ScreenEmptyError } from './specStore.js';
 import type { Spec } from '@lighter/spec';
 
-const spec = (title: string): Spec => ({
+const spec = (title: string): Spec => SpecSchema.parse({
   root: { type: 'PageShell', props: { title }, children: [] },
 });
 

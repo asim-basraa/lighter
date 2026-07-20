@@ -41,9 +41,10 @@ export function RenderSpec({
   const { spec: live, connected } = useLighterPreview<Spec>(spec, {
     allowedOrigins: studioOrigins?.length ? studioOrigins : allowedStudioOrigins(),
     screenId: screenId ?? null,
-    // Refuse anything that isn't a well-formed spec, so a mid-edit keystroke leaves the previous
-    // screen up and reports back instead of white-screening the storefront.
-    validate: isSpec,
+    // Parse rather than merely check: the schema boundary is what assigns stable element ids
+    // (#184), and the annotation layer keys off them. Refusing leaves the previous screen up and
+    // reports back instead of white-screening the storefront on a mid-edit keystroke.
+    parse: parseSpec,
     onRefresh: () => router.refresh(),
   });
 
@@ -57,8 +58,9 @@ export function RenderSpec({
   );
 }
 
-function isSpec(value: unknown): value is Spec {
-  return SpecSchema.safeParse(value).success;
+function parseSpec(value: unknown): Spec | null {
+  const result = SpecSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
 /**

@@ -1,18 +1,19 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import type { Spec } from '@lighter/spec';
 import { VariationsView } from './VariationsView.js';
 
 afterEach(cleanup);
 
-const variation = (label: string): Spec => ({
+const variation = (label: string): Spec => SpecSchema.parse(({
   root: {
     type: 'PageShell',
     props: { title: label },
     children: [{ type: 'Button', props: { label, variant: 'primary' }, children: [] }],
   },
-});
+}));
 
 describe('VariationsView', () => {
   it('renders each variation side by side as a live preview', () => {

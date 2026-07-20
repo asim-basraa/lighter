@@ -1,4 +1,4 @@
-import type { Spec, SpecNode } from '@lighter/spec';
+import { newNodeId, type Spec, type SpecNode } from '@lighter/spec';
 
 /**
  * Pure tree operations for the visual editor (#166).
@@ -136,23 +136,19 @@ export function walk(spec: Spec): Array<{ node: SpecNode; path: Path }> {
 }
 
 /**
- * The element id json-render will assign this path.
+ * The element id the rendered DOM carries for this path.
  *
- * `toJsonRender` numbers elements in pre-order as `el-0`, `el-1`, … so the same walk order used by
- * the tree yields the id the rendered DOM carries in `data-lighter-el`. That correspondence is what
- * lets clicking the live canvas select the right tree node (#170).
+ * Reads the node's own stable id (#184). It used to be derived from walk position, which meant
+ * inserting a node above another silently changed that node's id — and with it, whatever the id was
+ * anchoring. Ids are now opaque: never parse one, never infer position from it.
  */
 export function elementIdForPath(spec: Spec, path: Path): string | null {
-  const found = walk(spec).findIndex((entry) => samePath(entry.path, path));
-  return found === -1 ? null : `el-${found}`;
+  return nodeAt(spec, path)?.id ?? null;
 }
 
-/** The path for a json-render element id, the inverse of `elementIdForPath`. */
+/** The path for an element id, the inverse of `elementIdForPath`. Looked up, never parsed. */
 export function pathForElementId(spec: Spec, elementId: string): Path | null {
-  const match = /^el-(\d+)$/.exec(elementId);
-  if (!match) return null;
-  const entry = walk(spec)[Number(match[1])];
-  return entry ? entry.path : null;
+  return walk(spec).find((entry) => entry.node.id === elementId)?.path ?? null;
 }
 
 export function samePath(a: Path, b: Path): boolean {
@@ -179,7 +175,8 @@ export function defaultNodeFor(type: string, propsSchema: unknown): SpecNode {
     const prop = properties[key];
     props[key] = placeholderFor(key, prop, type);
   }
-  return { type, props, children: [] };
+  // A fresh id, generated once here and preserved by every subsequent edit.
+  return { id: newNodeId(), type, props, children: [] };
 }
 
 function placeholderFor(key: string, prop: Record<string, unknown> | undefined, type: string): unknown {

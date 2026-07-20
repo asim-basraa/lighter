@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -8,13 +9,13 @@ import type { Spec } from '@lighter/spec';
 import { createApp } from './app.js';
 import { SpecStore } from './specStore.js';
 
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Checkout' },
     children: [{ type: 'Text', props: { content: 'Hello', size: 'md' }, children: [] }],
   },
-};
+});
 
 // The committed design-system fixture; ingested so specs have a catalog to validate against.
 const fixtureRepo = join(
@@ -206,7 +207,7 @@ describe('spec catalog validation on save (#15)', () => {
   it('rejects an unknown component with structured issues and saves nothing', async () => {
     const app = await testApp();
     await post(app, '/screens', { name: 'Checkout' });
-    const badSpec: Spec = { root: { type: 'Ghost', props: {}, children: [] } };
+    const badSpec: Spec = SpecSchema.parse({ root: { type: 'Ghost', props: {}, children: [] } });
     const res = await post(app, '/screens/checkout/versions', { spec: badSpec });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { issues: { code: string; component: string }[] };
@@ -218,9 +219,9 @@ describe('spec catalog validation on save (#15)', () => {
   it('rejects props that violate the catalog schema', async () => {
     const app = await testApp();
     await post(app, '/screens', { name: 'Checkout' });
-    const badProps: Spec = {
+    const badProps: Spec = SpecSchema.parse({
       root: { type: 'Text', props: { content: 'x', size: 'ENORMOUS' }, children: [] },
-    };
+    });
     const res = await post(app, '/screens/checkout/versions', { spec: badProps });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { issues: { code: string }[] };

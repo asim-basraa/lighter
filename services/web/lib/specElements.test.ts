@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import type { Spec } from '@lighter/spec';
 import { specElements } from './specElements.js';
 
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Checkout' },
@@ -11,7 +12,7 @@ const spec: Spec = {
       { type: 'Button', props: { label: 'Pay', variant: 'primary' }, children: [] },
     ],
   },
-};
+});
 
 describe('specElements', () => {
   it('lists every element as an { id, type } anchor in pre-order', () => {

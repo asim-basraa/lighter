@@ -3,6 +3,12 @@ export {
   type SpecNode,
   SpecSchema,
   SpecNodeSchema,
+  ensureIds,
+  newNodeId,
+  DuplicateIdError,
+  DuplicateNameError,
+  type RawSpec,
+  type RawSpecNode,
   componentTypesOf,
   staleComponents,
 } from './spec.js';

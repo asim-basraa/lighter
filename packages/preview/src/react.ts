@@ -16,15 +16,18 @@ export interface LivePreviewState<T> {
  * Returns the app's own spec until a studio connects and pushes one, so the component renders
  * normally in production and in any context where it isn't framed.
  *
- * `validate` lets the app refuse a malformed spec — the previous spec stays on screen and the studio
- * is told, rather than the page white-screening on a bad edit.
+ * `parse` both validates and NORMALISES: it returns the spec to store, or null to refuse. Returning
+ * the parsed value matters — a spec arriving over the wire has been through JSON, so it carries
+ * whatever the sender had. Storing the raw object would skip the schema boundary that assigns stable
+ * element ids (#184), and the app would render elements with `undefined` ids that nothing can anchor
+ * to. Refusing leaves the previous spec on screen and tells the studio.
  */
 export function useLighterPreview<T>(
   initialSpec: T,
   options: {
     allowedOrigins: string[];
     screenId?: string | null;
-    validate?: (spec: unknown) => spec is T;
+    parse?: (spec: unknown) => T | null;
     onRefresh?: () => void;
   },
 ): LivePreviewState<T> {
@@ -48,9 +51,14 @@ export function useLighterPreview<T>(
       onConnection: setConnected,
       onRefresh: () => handlers.current.onRefresh?.(),
       onSpec: (incoming) => {
-        const validate = handlers.current.validate;
-        if (validate && !validate(incoming)) return false;
-        setSpec(incoming as T);
+        const parse = handlers.current.parse;
+        if (!parse) {
+          setSpec(incoming as T);
+          return true;
+        }
+        const parsed = parse(incoming);
+        if (parsed === null) return false;
+        setSpec(parsed);
         return true;
       },
     });
