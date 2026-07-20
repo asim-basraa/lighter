@@ -6,10 +6,12 @@ import {
   asFrameMessage,
   isCompatible,
   type ParentMessage,
+  type Box,
 } from '@lighter/preview';
 import type { Spec } from '@lighter/spec';
 import { buildTokenCss, DEFAULT_EDITS, type TokenEdits } from '../lib/tokenOverrides.js';
 import { OriginPicker } from './OriginPicker.js';
+import { CanvasOverlay } from './CanvasOverlay.js';
 import { SpecTree } from './SpecTree.js';
 import { PropertyPanel } from './PropertyPanel.js';
 import type { PreviewOrigin } from '../lib/originRules.js';
@@ -20,6 +22,9 @@ import {
   removeAt,
   moveWithinParent,
   defaultNodeFor,
+  pathForElementId,
+  elementIdForPath,
+  samePath,
   type Path,
 } from '../lib/specEdit.js';
 
@@ -81,12 +86,30 @@ export function LivePreview({
   const [pushed, setPushed] = useState<number | null>(null);
   const [pushError, setPushError] = useState<string | null>(null);
 
+  /** 'browse' leaves the prototype fully interactive; 'select' claims clicks for picking elements. */
+  const [mode, setMode] = useState<'browse' | 'select'>('select');
+  const [hoverBox, setHoverBox] = useState<Box | null>(null);
+  const [hoverLabel, setHoverLabel] = useState<string | null>(null);
+  const [selectedBox, setSelectedBox] = useState<Box | null>(null);
+  const [frameRect, setFrameRect] = useState<DOMRect | null>(null);
+
   const post = useCallback(
     (message: ParentMessage) => {
       frame.current?.contentWindow?.postMessage(message, origin);
     },
     [origin],
   );
+
+  /**
+   * Spec-derived lookups the message listener needs, held in refs.
+   *
+   * The listener is subscribed once per origin; reading `spec` directly would force it to
+   * re-subscribe on every keystroke, and a re-subscribe drops in-flight messages from the frame.
+   */
+  const connectedRef = useRef(false);
+  const typeOfElementRef = useRef<(id: string) => string | null>(() => null);
+  const pathForElementIdRef = useRef<(id: string) => Path | null>(() => null);
+  const selectedElementIdRef = useRef<string | null>(null);
 
   // Parent half of the handshake.
   useEffect(() => {
@@ -104,14 +127,51 @@ export function LivePreview({
         }
         setConnection('connected');
         post({ type: 'lighter:ready', protocol: PROTOCOL_VERSION });
+        connectedRef.current = true;
       } else if (message.type === 'lighter:navigated') {
         setAppPath(message.path);
       } else if (message.type === 'lighter:error') {
         setFrameError(message.message);
+      } else if (message.type === 'lighter:element') {
+        const hit = message.element;
+        if (message.kind === 'hover') {
+          setHoverBox(hit?.box ?? null);
+          setHoverLabel(hit ? typeOfElementRef.current(hit.id) : null);
+        } else if (message.kind === 'measure') {
+          // Box only. Re-applying the selection here would re-trigger the measure that produced it.
+          setSelectedBox(hit?.box ?? null);
+        } else if (hit) {
+          // A click on the canvas selects the corresponding node in the tree — the two views are
+          // the same selection, not two selections that happen to agree.
+          const path = pathForElementIdRef.current(hit.id);
+          // Only replace the selection when it actually differs: `path` is a fresh array every time,
+          // so assigning an equal one still changes identity and would re-run the measure effect.
+          if (path) setSelected((current) => (current && samePath(current, path) ? current : path));
+          setSelectedBox(hit.box);
+        }
+      } else if (message.type === 'lighter:layout') {
+        setFrameRect(frame.current?.getBoundingClientRect() ?? null);
+        // The frame scrolled or resized: whatever we're outlining has moved, so ask for a fresh box
+        // rather than leaving a stale rectangle floating over the app.
+        const id = selectedElementIdRef.current;
+        if (id) post({ type: 'lighter:measure', elementId: id });
       }
     };
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    // Ask any already-running app to re-announce itself. Without this, a studio that remounts (hot
+    // reload, refresh, route change) waits forever: the app said hello before we were listening and
+    // has no reason to repeat it.
+    const ping = () => {
+      if (!connectedRef.current) post({ type: 'lighter:ping' });
+    };
+    ping();
+    const retry = setInterval(ping, 1000);
+    const stop = setTimeout(() => clearInterval(retry), 10_000);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      clearInterval(retry);
+      clearTimeout(stop);
+    };
   }, [origin, post]);
 
   const tokenCss = useMemo(() => buildTokenCss(edits), [edits]);
@@ -194,6 +254,51 @@ export function LivePreview({
     [catalog],
   );
   const selectedNode = selected ? nodeAt(spec, selected) : null;
+
+  // Keep the listener's lookups pointed at the current spec/selection without re-subscribing it.
+  useEffect(() => {
+    typeOfElementRef.current = (id) => {
+      const path = pathForElementId(spec, id);
+      return path ? (nodeAt(spec, path)?.type ?? null) : null;
+    };
+    pathForElementIdRef.current = (id) => pathForElementId(spec, id);
+    selectedElementIdRef.current = selected ? elementIdForPath(spec, selected) : null;
+  }, [spec, selected]);
+
+  /**
+   * Turn hit-testing on in the app while in select mode.
+   *
+   * Off in browse mode so the prototype behaves normally — clicking a link follows it, which is the
+   * point of previewing a real app rather than a mock.
+   */
+  useEffect(() => {
+    if (connection !== 'connected') return;
+    post({ type: 'lighter:annotate', enabled: mode === 'select' });
+    if (mode === 'browse') {
+      setHoverBox(null);
+      setHoverLabel(null);
+    }
+  }, [mode, connection, post]);
+
+  /** Re-outline the selection when it changes in the TREE, so both views stay in step. */
+  useEffect(() => {
+    if (connection !== 'connected' || mode !== 'select') return;
+    const id = selected ? elementIdForPath(spec, selected) : null;
+    if (id) post({ type: 'lighter:measure', elementId: id });
+    else setSelectedBox(null);
+  }, [selected, spec, connection, mode, post]);
+
+  // The overlay is positioned from the iframe's own rect, so track it as the window changes.
+  useEffect(() => {
+    const measure = () => setFrameRect(frame.current?.getBoundingClientRect() ?? null);
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, []);
 
   // Belt and braces alongside the no-op guard in specEdit: if a selection stops resolving (its node
   // was deleted, or an ancestor moved), fall back to the root rather than holding a path that points
@@ -358,6 +463,24 @@ export function LivePreview({
       </aside>
 
       <div style={stage}>
+        <div style={modeBar} role="group" aria-label="Canvas mode">
+          <button
+            type="button"
+            onClick={() => setMode('browse')}
+            style={mode === 'browse' ? modeOn : modeOff}
+            aria-pressed={mode === 'browse'}
+          >
+            Browse
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('select')}
+            style={mode === 'select' ? modeOn : modeOff}
+            aria-pressed={mode === 'select'}
+          >
+            Select
+          </button>
+        </div>
         <iframe
           ref={frame}
           src={origin}
@@ -366,6 +489,13 @@ export function LivePreview({
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
       </div>
+
+      <CanvasOverlay
+        frameRect={frameRect}
+        hover={mode === 'select' ? hoverBox : null}
+        selected={selectedBox}
+        label={hoverLabel}
+      />
     </div>
   );
 }
@@ -434,7 +564,34 @@ const railHead: CSSProperties = {
   alignItems: 'center',
   marginBottom: 'var(--space-3)',
 };
-const stage: CSSProperties = { flex: 1, minWidth: 0, background: '#fff' };
+const stage: CSSProperties = { flex: 1, minWidth: 0, background: '#fff', position: 'relative' };
+const modeBar: CSSProperties = {
+  position: 'absolute',
+  right: 12,
+  bottom: 12,
+  zIndex: 61,
+  display: 'inline-flex',
+  borderRadius: 999,
+  overflow: 'hidden',
+  border: '1px solid var(--border-default, #e2e8f0)',
+  background: 'color-mix(in srgb, var(--background-canvas, #fff) 92%, transparent)',
+  backdropFilter: 'blur(8px)',
+  boxShadow: '0 4px 14px rgb(15 23 42 / 0.12)',
+};
+const modeOff: CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  padding: '5px 12px',
+  cursor: 'pointer',
+  fontSize: 11,
+  color: 'var(--foreground-muted, #64748b)',
+};
+const modeOn: CSSProperties = {
+  ...modeOff,
+  background: 'var(--primary-default, #2563eb)',
+  color: '#fff',
+  fontWeight: 600,
+};
 const iframeStyle: CSSProperties = { width: '100%', height: '100%', border: 0, display: 'block' };
 const group: CSSProperties = { marginTop: 'var(--space-4)' };
 const groupTitle: CSSProperties = {

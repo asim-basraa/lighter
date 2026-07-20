@@ -5,6 +5,7 @@ import {
   isCompatible,
   type FrameMessage,
 } from './protocol.js';
+import { startAnnotating, measureElement } from './annotate.js';
 
 export const SDK_VERSION = '0.1.0';
 
@@ -45,6 +46,7 @@ export function connectPreview(options: PreviewOptions): () => void {
   if (allowed.length === 0) return () => {};
 
   let lockedOrigin: string | null = null;
+  let stopAnnotating: (() => void) | null = null;
 
   const post = (message: FrameMessage) => {
     const targets = lockedOrigin ? [lockedOrigin] : allowed;
@@ -98,20 +100,54 @@ export function connectPreview(options: PreviewOptions): () => void {
         else options.onRefresh?.();
         return;
       }
+      case 'lighter:ping': {
+        // Re-announce. The parent may have remounted while we were already running.
+        post(hello());
+        return;
+      }
+      case 'lighter:annotate': {
+        stopAnnotating?.();
+        stopAnnotating = null;
+        if (!message.enabled) return;
+        stopAnnotating = startAnnotating({
+          onHover: (hit) => post({ type: 'lighter:element', kind: 'hover', element: hit }),
+          onSelect: (hit) => post({ type: 'lighter:element', kind: 'select', element: hit }),
+          onLayoutChange: () => post({ type: 'lighter:layout' }),
+        });
+        return;
+      }
+      case 'lighter:measure': {
+        // Answers as 'measure', never 'select': a re-measure must move the outline WITHOUT
+        // re-applying the tree selection, or the response re-triggers the request forever.
+        const box = measureElement(message.elementId);
+        if (box) {
+          post({
+            type: 'lighter:element',
+            kind: 'measure',
+            element: { id: message.elementId, box, ancestors: [] },
+          });
+        }
+        return;
+      }
     }
   };
 
+  function hello(): FrameMessage {
+    return {
+      type: 'lighter:hello',
+      protocol: PROTOCOL_VERSION,
+      sdkVersion: SDK_VERSION,
+      screenId: options.screenId ?? null,
+      path: window.location.pathname,
+    };
+  }
+
   window.addEventListener('message', onMessage);
-  post({
-    type: 'lighter:hello',
-    protocol: PROTOCOL_VERSION,
-    sdkVersion: SDK_VERSION,
-    screenId: options.screenId ?? null,
-    path: window.location.pathname,
-  });
+  post(hello());
 
   return () => {
     window.removeEventListener('message', onMessage);
+    stopAnnotating?.();
     options.onConnection?.(false);
   };
 }
