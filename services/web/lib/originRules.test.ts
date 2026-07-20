@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidOrigin, isLoopbackOrigin, isMixedContentBlocked } from './previewOrigins.js';
+import { isValidOrigin, isLoopbackOrigin, isMixedContentBlocked } from './originRules.js';
 
 /**
  * These mirror the API's rules (@lighter/db). Both sides must agree on what an origin *is*, or the

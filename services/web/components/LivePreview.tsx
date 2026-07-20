@@ -10,7 +10,7 @@ import {
 import type { Spec } from '@lighter/spec';
 import { buildTokenCss, DEFAULT_EDITS, type TokenEdits } from '../lib/tokenOverrides.js';
 import { OriginPicker } from './OriginPicker.js';
-import type { PreviewOrigin } from '../lib/previewOrigins.js';
+import type { PreviewOrigin } from '../lib/originRules.js';
 
 /**
  * Drive a real running app from the studio (#166/#169/#171).

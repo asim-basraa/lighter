@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PreviewOrigin } from '../lib/previewOrigins.js';
+import type { PreviewOrigin } from '../lib/originRules.js';
 
 /**
  * Choose (and manage) which running app the studio frames (#166).
