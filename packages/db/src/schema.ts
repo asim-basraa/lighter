@@ -238,3 +238,28 @@ export const projectInvites = sqliteTable(
 );
 
 export type ProjectInviteRow = typeof projectInvites.$inferSelect;
+
+/**
+ * App origins the studio may frame for live preview (#166), per project.
+ *
+ * An allowlist exists because the framed origin would otherwise be attacker-controllable via a link
+ * — a Lighter-chromed page rendering someone else's content, which is a credible phishing surface,
+ * and a channel the studio would push specs into. Membership is managed by project members in the
+ * UI; the live page may only *select among* these, never introduce one.
+ */
+export const previewOrigins = sqliteTable(
+  'preview_origins',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    origin: text('origin').notNull(),
+    label: text('label'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({ pk: primaryKey({ columns: [table.projectId, table.origin] }) }),
+);
+
+export type PreviewOriginRow = typeof previewOrigins.$inferSelect;

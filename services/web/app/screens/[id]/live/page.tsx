@@ -29,8 +29,8 @@ export default async function LivePreviewPage({
   const requested = Number(searchParams.v);
   const version = versions.includes(requested) ? requested : (versions.at(-1) ?? 0);
 
-  const origin = resolvePreviewOrigin(searchParams.origin);
-  if (!origin) return <Unavailable id={params.id}>No preview origin is configured. Set <code>LIGHTER_PREVIEW_ORIGINS</code>.</Unavailable>;
+  const { origin, allowed } = await resolvePreviewOrigin(searchParams.origin);
+  if (!origin) return <Unavailable id={params.id}>No app origin available to preview.</Unavailable>;
 
   const specRes = version ? await getVersionSpec(params.id, version) : null;
   if (!specRes) return <Unavailable id={params.id}>This screen has no version to preview yet.</Unavailable>;
@@ -44,6 +44,7 @@ export default async function LivePreviewPage({
       initialVersion={version}
       initialSpec={specRes.spec}
       origin={origin}
+      allowedOrigins={allowed}
       mixedContentBlocked={isMixedContentBlocked(`${proto}:`, origin)}
     />
   );

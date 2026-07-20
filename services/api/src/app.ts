@@ -27,6 +27,7 @@ import { registerHandoffRoutes } from './handoff.js';
 import { registerWebhookRoutes, type DesignSystemConfig } from './webhook.js';
 import { requireProject, type AuthConfig } from './auth.js';
 import { registerProjectAdminRoutes } from './projectAdmin.js';
+import { registerPreviewOriginRoutes } from './previewOriginRoutes.js';
 import type { ProjectStores } from './projectStores.js';
 import type { ScreenScope } from './screenScope.js';
 import type { Notifier } from './notifier.js';
@@ -332,6 +333,8 @@ export function createApp(deps: AppDeps): Hono {
     registerHandoffRoutes(app, deps.db, globalScope);
   } else if (deps.storeProvider && deps.auth) {
     const provider = deps.storeProvider;
+    // Preview-origin allowlist (#166): project-scoped, dual-credential.
+    registerPreviewOriginRoutes(app, deps.db, deps.auth);
     // The project-owned surfaces (/screens, /specs, /generate) are already guarded up front (see the
     // `scoped` block above). The public /share/* routes carry no guard — the share token is the
     // credential and encodes its own project.
