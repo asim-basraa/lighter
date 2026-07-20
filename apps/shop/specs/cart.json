@@ -1,0 +1,119 @@
+{
+  "root": {
+    "type": "PageShell",
+    "props": {
+      "title": "Your cart"
+    },
+    "children": [
+      {
+        "type": "Heading",
+        "props": {
+          "content": "Your cart (2)",
+          "level": 2
+        },
+        "children": []
+      },
+      {
+        "type": "Stack",
+        "props": {
+          "direction": "vertical",
+          "gap": "4"
+        },
+        "children": [
+          {
+            "type": "Card",
+            "props": {
+              "title": "Slate Runner"
+            },
+            "children": [
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "6"
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "Qty 1",
+                      "tone": "muted"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "$128"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Card",
+            "props": {
+              "title": "Mist Tee"
+            },
+            "children": [
+              {
+                "type": "Stack",
+                "props": {
+                  "direction": "horizontal",
+                  "gap": "6"
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "Qty 1",
+                      "tone": "muted"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "$48"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "DescriptionList",
+        "props": {
+          "items": [
+            {
+              "term": "Subtotal",
+              "description": "$176"
+            },
+            {
+              "term": "Shipping",
+              "description": "$8"
+            },
+            {
+              "term": "Total",
+              "description": "$184"
+            }
+          ]
+        },
+        "children": []
+      },
+      {
+        "type": "Button",
+        "props": {
+          "label": "Checkout",
+          "variant": "primary"
+        },
+        "children": []
+      }
+    ]
+  }
+}

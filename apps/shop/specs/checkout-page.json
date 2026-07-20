@@ -1,0 +1,125 @@
+{
+  "root": {
+    "type": "PageShell",
+    "props": {
+      "title": "Checkout"
+    },
+    "children": [
+      {
+        "type": "Steps",
+        "props": {
+          "steps": [
+            {
+              "label": "Cart"
+            },
+            {
+              "label": "Details"
+            },
+            {
+              "label": "Payment"
+            }
+          ],
+          "current": 1
+        },
+        "children": []
+      },
+      {
+        "type": "Grid",
+        "props": {
+          "columns": 2,
+          "gap": "8"
+        },
+        "children": [
+          {
+            "type": "Stack",
+            "props": {
+              "direction": "vertical",
+              "gap": "4"
+            },
+            "children": [
+              {
+                "type": "Card",
+                "props": {
+                  "title": "Shipping address"
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "Ada Lovelace"
+                    },
+                    "children": []
+                  },
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "12 Harbor View, Seattle, WA",
+                      "tone": "muted"
+                    },
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "type": "Card",
+                "props": {
+                  "title": "Payment"
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "props": {
+                      "content": "Visa •••• 4242",
+                      "tone": "muted"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Card",
+            "props": {
+              "title": "Order summary"
+            },
+            "children": [
+              {
+                "type": "DescriptionList",
+                "props": {
+                  "items": [
+                    {
+                      "term": "Slate Runner",
+                      "description": "$128"
+                    },
+                    {
+                      "term": "Mist Tee",
+                      "description": "$48"
+                    },
+                    {
+                      "term": "Shipping",
+                      "description": "$8"
+                    },
+                    {
+                      "term": "Total",
+                      "description": "$184"
+                    }
+                  ]
+                },
+                "children": []
+              },
+              {
+                "type": "Button",
+                "props": {
+                  "label": "Place order",
+                  "variant": "primary"
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
