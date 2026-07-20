@@ -1,11 +1,11 @@
-import type { Spec } from '@lighter/spec';
+import { SpecSchema, type Spec } from '@lighter/spec';
 
 /**
  * A sample screen authored in Lighter's internal spec format (nested `{ type, props, children }`),
  * using the design system's json-render catalog components. The Render page converts it to json-render
  * and renders it through the design system — the same path Lighter-generated specs take.
  */
-export const sampleSpec: Spec = {
+export const sampleSpec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Order Confirmed' },
@@ -71,7 +71,7 @@ export const sampleSpec: Spec = {
       },
     ],
   },
-};
+});
 
 /** The same spec as pretty JSON, for the paste-and-render editor. */
 export const sampleSpecJson = JSON.stringify(sampleSpec, null, 2);

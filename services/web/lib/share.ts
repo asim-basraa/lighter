@@ -1,4 +1,4 @@
-import type { Spec } from '@lighter/spec';
+import { SpecSchema, type Spec } from '@lighter/spec';
 import { apiBaseUrl } from './inventory.js';
 
 /** A click-through flow link to another screen's deployed mock (#30). `token` is null if undeployed. */
@@ -51,7 +51,10 @@ export async function loadShare(
     if (!res.ok) {
       throw new Error(`Share API returned ${res.status}`);
     }
-    return { share: (await res.json()) as SharedVersion, error: null };
+    const body = (await res.json()) as SharedVersion;
+    // Parse the spec at the boundary — this is where stable element ids are assigned (#184), and
+    // the review surface's annotation layer keys off them.
+    return { share: { ...body, spec: SpecSchema.parse(body.spec) }, error: null };
   } catch (err) {
     // This surface is public, so the viewer-facing message stays generic; the technical detail is
     // logged server-side (never sent to an unauthenticated external viewer).

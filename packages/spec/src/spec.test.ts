@@ -13,7 +13,7 @@ import {
 } from './index.js';
 
 // A representative nested spec using the example design system's components.
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Checkout' },
@@ -35,7 +35,7 @@ const spec: Spec = {
       },
     ],
   },
-};
+});
 
 describe('spec ↔ json-render serialization', () => {
   it('round-trips internal → json-render → internal losslessly', () => {
@@ -69,14 +69,14 @@ describe('spec ↔ json-render serialization', () => {
   });
 
   it('serializes a leaf-only spec (no children key)', () => {
-    const leaf: Spec = { root: { type: 'Text', props: { content: 'hi' }, children: [] } };
+    const leaf: Spec = SpecSchema.parse({ root: { type: 'Text', props: { content: 'hi' }, children: [] } });
     const jr = toJsonRender(leaf);
     expect(jr.elements[jr.root]!.children).toBeUndefined();
     expect(fromJsonRender(jr)).toEqual(leaf);
   });
 
   it('round-trips rich props losslessly (nested objects, arrays, null, empty)', () => {
-    const rich: Spec = {
+    const rich: Spec = SpecSchema.parse({
       root: {
         type: 'Card',
         props: {
@@ -87,19 +87,19 @@ describe('spec ↔ json-render serialization', () => {
         },
         children: [{ type: 'Text', props: {}, children: [] }],
       },
-    };
+    });
     expect(fromJsonRender(toJsonRender(rich))).toEqual(rich);
   });
 
   it('does not alias prop objects across the boundary', () => {
-    const src: Spec = { root: { type: 'Text', props: { content: 'x' }, children: [] } };
+    const src: Spec = SpecSchema.parse({ root: { type: 'Text', props: { content: 'x' }, children: [] } });
     const jr = toJsonRender(src);
     (jr.elements[jr.root]!.props as Record<string, unknown>).content = 'mutated';
     expect(src.root.props.content).toBe('x'); // internal spec untouched
   });
 
   it('refuses to serialize a prop that collides with a json-render reserved key', () => {
-    const bad: Spec = { root: { type: 'Modal', props: { visible: true }, children: [] } };
+    const bad: Spec = SpecSchema.parse({ root: { type: 'Modal', props: { visible: true }, children: [] } });
     expect(() => toJsonRender(bad)).toThrow(/reserved element field/);
   });
 
@@ -119,25 +119,25 @@ describe('spec ↔ json-render serialization', () => {
   });
 
   it('serializes mock data to json-render state and round-trips it losslessly', () => {
-    const withData: Spec = {
+    const withData: Spec = SpecSchema.parse({
       root: { type: 'Text', props: { content: 'Hi' }, children: [] },
       data: { user: { name: 'Alice' }, items: [1, 2, 3] },
-    };
+    });
     const jr = toJsonRender(withData);
     expect(jr.state).toEqual(withData.data);
     expect(fromJsonRender(jr)).toEqual(withData);
   });
 
   it('omits state when the spec has no mock data', () => {
-    const jr = toJsonRender({ root: { type: 'Text', props: {}, children: [] } });
+    const jr = toJsonRender(SpecSchema.parse({ root: { type: 'Text', props: {}, children: [] } }));
     expect(jr.state).toBeUndefined();
   });
 
   it('does not alias mock data across the boundary', () => {
-    const src: Spec = {
+    const src: Spec = SpecSchema.parse({
       root: { type: 'Text', props: {}, children: [] },
       data: { count: 1 },
-    };
+    });
     const jr = toJsonRender(src);
     (jr.state as { count: number }).count = 99;
     expect(src.data!.count).toBe(1); // internal spec untouched

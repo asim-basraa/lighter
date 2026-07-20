@@ -7,9 +7,10 @@ import type { Spec, SpecNode } from './spec.js';
  * what preserves the option to add another serialization target (e.g. A2UI) later.
  *
  * The internal spec is a nested tree; json-render wants a flat `{ root, elements }` map keyed by
- * string ids. Ids are an artifact of that format — generated deterministically on serialize (pre-
- * order `el-0`, `el-1`, …) and discarded on deserialize — so an internal → json-render → internal
- * round-trip is lossless.
+ * string ids. Those ids are the node's OWN stable id (#184) — not a positional counter — so an
+ * element keeps its identity when a sibling is inserted above it. Anything anchored to an id (a
+ * comment today; region references and bindings later) therefore stays pointed at the same element.
+ * Ids and slot names survive the round-trip, so internal → json-render → internal is lossless.
  */
 export type { JsonRenderSpec };
 
@@ -21,10 +22,9 @@ export type { JsonRenderSpec };
  */
 const RESERVED_ELEMENT_KEYS = ['visible', 'on', 'repeat', 'watch'] as const;
 
-/** Serialize an internal spec to a json-render spec. Ids are assigned in deterministic pre-order. */
+/** Serialize an internal spec to a json-render spec, keyed by each node's own stable id. */
 export function toJsonRender(spec: Spec): JsonRenderSpec {
   const elements: Record<string, UIElement> = {};
-  let counter = 0;
 
   const walk = (node: SpecNode): string => {
     for (const key of RESERVED_ELEMENT_KEYS) {
@@ -34,7 +34,7 @@ export function toJsonRender(spec: Spec): JsonRenderSpec {
         );
       }
     }
-    const id = `el-${counter++}`;
+    const id = node.id;
     // Copy props so the emitted spec never aliases the internal spec's mutable objects.
     const element: UIElement = { type: node.type, props: { ...node.props } };
     // Insert the parent before its children so element key order is stable pre-order.
@@ -52,7 +52,7 @@ export function toJsonRender(spec: Spec): JsonRenderSpec {
 }
 
 /**
- * Deserialize a json-render spec back to an internal spec by walking from the root. Ids are dropped.
+ * Deserialize a json-render spec back to an internal spec by walking from the root. Ids are kept.
  *
  * The internal spec is a thin subset of json-render: it models `type`/`props`/`children` plus
  * top-level `state` (mapped to the spec's mock `data`). If a json-render spec carries an element-
@@ -73,11 +73,15 @@ export function fromJsonRender(jr: JsonRenderSpec): Spec {
         );
       }
     }
-    return {
+    // The json-render key IS the node's identity, so deserializing restores it rather than
+    // discarding it — that is what makes the round-trip lossless for anything anchored to an id.
+    const node: SpecNode = {
+      id,
       type: element.type,
       props: { ...((element.props ?? {}) as Record<string, unknown>) },
       children: (element.children ?? []).map(build),
     };
+    return node;
   };
   const spec: Spec = { root: build(jr.root) };
   if (jr.state !== undefined) spec.data = { ...jr.state };

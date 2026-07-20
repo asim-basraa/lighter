@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import type { Spec } from '@lighter/spec';
 import { loadShare } from './share.js';
 
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: {
     type: 'PageShell',
     props: { title: 'Checkout' },
     children: [{ type: 'Button', props: { label: 'Pay', variant: 'primary' }, children: [] }],
   },
-};
+});
 
 const sharedBody = {
   screen: { id: 'checkout', name: 'Checkout' },

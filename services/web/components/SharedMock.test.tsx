@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { render, screen, cleanup } from '@testing-library/react';
 import type { SharedVersion } from '../lib/share.js';
 import { SharedMock } from './SharedMock.js';
@@ -11,13 +12,13 @@ const shared: SharedVersion = {
   version: 2,
   deployedAt: '2026-07-17 09:30:00',
   flow: [],
-  spec: {
+  spec: SpecSchema.parse({
     root: {
       type: 'PageShell',
       props: { title: 'Checkout' },
       children: [{ type: 'Button', props: { label: 'Pay', variant: 'primary' }, children: [] }],
     },
-  },
+  }),
 };
 
 describe('SharedMock', () => {

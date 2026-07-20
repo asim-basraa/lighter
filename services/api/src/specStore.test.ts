@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -12,9 +13,9 @@ import {
 } from './specStore.js';
 import type { Spec } from '@lighter/spec';
 
-const spec: Spec = {
+const spec: Spec = SpecSchema.parse({
   root: { type: 'PageShell', props: { title: 'Home' }, children: [] },
-};
+});
 
 function gitLog(root: string): string[] {
   return execFileSync('git', ['log', '--pretty=%s'], { cwd: root, encoding: 'utf8' })
@@ -122,7 +123,7 @@ describe('SpecStore', () => {
   it('duplicates a screen: new v1 copies the source latest, source untouched', async () => {
     await store.createScreen('Checkout');
     await store.saveVersion('checkout', spec);
-    const v2: Spec = { root: { type: 'Text', props: { content: 'v2' }, children: [] } };
+    const v2: Spec = SpecSchema.parse({ root: { type: 'Text', props: { content: 'v2' }, children: [] } });
     await store.saveVersion('checkout', v2);
 
     const dup = await store.duplicateScreen('checkout', 'Checkout Copy');

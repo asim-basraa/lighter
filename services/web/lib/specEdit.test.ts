@@ -14,17 +14,26 @@ import {
   defaultNodeFor,
 } from './specEdit.js';
 
-const node = (type: string, props: Record<string, unknown> = {}, children: SpecNode[] = []): SpecNode => ({
-  type,
-  props,
-  children,
-});
+/**
+ * Deterministic ids in tests, so assertions can name an element without depending on tree position —
+ * which is the whole point of #184. `id` defaults to the type in lower case, since every type in
+ * these fixtures is unique; pass one explicitly where a fixture repeats a type.
+ */
+const node = (
+  type: string,
+  props: Record<string, unknown> = {},
+  children: SpecNode[] = [],
+  id = type.toLowerCase(),
+): SpecNode => ({ id, type, props, children });
 
 /** PageShell > [Heading, Grid > [Card > [Button], Card]] */
 const spec = (): Spec => ({
   root: node('PageShell', { title: 'Shop' }, [
     node('Heading', { content: 'Hi', level: 2 }),
-    node('Grid', { columns: 2 }, [node('Card', { title: 'A' }, [node('Button', { label: 'Buy' })]), node('Card', { title: 'B' })]),
+    node('Grid', { columns: 2 }, [
+      node('Card', { title: 'A' }, [node('Button', { label: 'Buy' })], 'card-a'),
+      node('Card', { title: 'B' }, [], 'card-b'),
+    ]),
   ]),
 });
 

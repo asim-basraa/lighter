@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { componentTypesOf } from '@lighter/spec';
 import { generateSpec, generateVariations, refineSpec, GenerationError } from './generate.js';
-import type { Spec } from '@lighter/spec';
+import { SpecSchema, type Spec } from '@lighter/spec';
 import { buildSystemPrompt, catalogPrompt, type CatalogComponent } from './prompt.js';
 import type { LlmClient } from './llm.js';
 
@@ -171,13 +171,13 @@ describe('generateVariations', () => {
 });
 
 describe('refineSpec', () => {
-  const currentSpec: Spec = {
+  const currentSpec: Spec = SpecSchema.parse({
     root: {
       type: 'PageShell',
       props: { title: 'Home' },
       children: [{ type: 'Text', props: { content: 'Old copy', size: 'md' }, children: [] }],
     },
-  };
+  });
   const refinedJson = JSON.stringify({
     root: {
       type: 'PageShell',

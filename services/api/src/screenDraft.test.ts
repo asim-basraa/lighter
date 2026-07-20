@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { SpecSchema } from '@lighter/spec';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,9 +7,8 @@ import { Hono } from 'hono';
 import { registerScreenRoutes } from './screens.js';
 import { SpecStore } from './specStore.js';
 
-const spec = (title: string) => ({
-  root: { type: 'PageShell', props: { title }, children: [] },
-});
+const spec = (title: string) =>
+  SpecSchema.parse({ root: { type: 'PageShell', props: { title }, children: [] } });
 
 /** A catalog that knows PageShell (with a required title) and nothing else. */
 const catalog = {

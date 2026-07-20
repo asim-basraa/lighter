@@ -1,7 +1,7 @@
 import { studioOrigins } from '../../lib/studioOrigins.js';
 import { RenderSpec } from '../../lib/renderSpec.js';
 import spec from '../../specs/cart.json';
-import type { Spec } from '@lighter/spec';
+import { SpecSchema } from '@lighter/spec';
 
 /**
  * Rendered per request, not prerendered.
@@ -15,5 +15,5 @@ export const dynamic = 'force-dynamic';
 
 /** Cart — layout exported from Lighter (screen `cart`, v1, approved). */
 export default function Page() {
-  return <RenderSpec spec={spec as Spec} screenId="cart" studioOrigins={studioOrigins()} />;
+  return <RenderSpec spec={SpecSchema.parse(spec)} screenId="cart" studioOrigins={studioOrigins()} />;
 }

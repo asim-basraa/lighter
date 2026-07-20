@@ -1,7 +1,7 @@
 import { studioOrigins } from '../../lib/studioOrigins.js';
 import { RenderSpec } from '../../lib/renderSpec.js';
 import spec from '../../specs/product.json';
-import type { Spec } from '@lighter/spec';
+import { SpecSchema } from '@lighter/spec';
 
 /**
  * Rendered per request, not prerendered.
@@ -15,5 +15,5 @@ export const dynamic = 'force-dynamic';
 
 /** Product detail — layout exported from Lighter (screen `product`, v1, approved). */
 export default function Page() {
-  return <RenderSpec spec={spec as Spec} screenId="product" studioOrigins={studioOrigins()} />;
+  return <RenderSpec spec={SpecSchema.parse(spec)} screenId="product" studioOrigins={studioOrigins()} />;
 }
