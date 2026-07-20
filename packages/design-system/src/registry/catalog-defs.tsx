@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { catalogComponent, type CatalogComponent } from '../util/catalog.js';
-import { PageShell, Container, Stack, Grid, Divider } from '../components/layout.js';
+import { PageShell, Container, Stack, Grid, Divider, Box, AspectRatio } from '../components/layout.js';
 import { Heading, Text, Link } from '../components/typography.js';
 import { Button } from '../components/button.js';
 import { Card, Badge, Avatar, Progress, Stat, EmptyState } from '../components/data-display.js';
@@ -8,6 +8,15 @@ import { Alert, Callout } from '../components/feedback.js';
 import { Breadcrumb, Steps, Tabs, Accordion } from '../components/navigation.js';
 import { DescriptionList, Timeline } from '../components/table.js';
 import { Icon, type IconName } from '../components/icon.js';
+import {
+  Input,
+  Textarea,
+  Select,
+  Checkbox,
+  Radio,
+  Switch,
+  Field,
+} from '../components/form.js';
 
 /**
  * The json-render catalog: the subset of the design system that is meaningful in an AI-authored,
@@ -15,6 +24,20 @@ import { Icon, type IconName } from '../components/icon.js';
  * catalog AND (converted to JSON Schema at build) the `dist/catalog.json` that Lighter ingests and
  * constrains generation to. The full React library is larger; not everything belongs in a spec.
  */
+/**
+ * The design system's full spacing scale. The catalog previously exposed a hand-picked subset, which
+ * meant a spec could not express spacings the components themselves support — an arbitrary ceiling
+ * that showed up as "the editor is limited" (#166).
+ */
+const SPACE_SCALE = z.enum(['0', '1', '2', '3', '4', '5', '6', '8', '10', '12', '16', '20', '24']);
+
+/** Map the catalog's short flex words onto CSS values (`start` -> `flex-start`). */
+function flexValue(value?: string): string | undefined {
+  if (!value) return undefined;
+  if (value === 'start' || value === 'end') return `flex-${value}`;
+  return value;
+}
+
 export const catalogDefs: CatalogComponent[] = [
   catalogComponent({
     name: 'PageShell',
@@ -38,10 +61,21 @@ export const catalogDefs: CatalogComponent[] = [
       'A flex layout that stacks children vertically (default) or horizontally with a spacing-token gap. The primary way to arrange components.',
     props: z.object({
       direction: z.enum(['vertical', 'horizontal']).optional(),
-      gap: z.enum(['1', '2', '3', '4', '6', '8']).optional(),
+      gap: SPACE_SCALE.optional(),
+      align: z.enum(['start', 'center', 'end', 'stretch', 'baseline']).optional(),
+      justify: z
+        .enum(['start', 'center', 'end', 'space-between', 'space-around', 'space-evenly'])
+        .optional(),
+      wrap: z.boolean().optional(),
     }),
     render: ({ props, children }) => (
-      <Stack direction={props.direction} gap={props.gap}>
+      <Stack
+        direction={props.direction}
+        gap={props.gap}
+        align={flexValue(props.align)}
+        justify={flexValue(props.justify)}
+        wrap={props.wrap}
+      >
         {children}
       </Stack>
     ),
@@ -53,7 +87,7 @@ export const catalogDefs: CatalogComponent[] = [
       'A CSS grid with a fixed column count and a spacing-token gap. Use for card grids.',
     props: z.object({
       columns: z.number().int().min(1).max(6).optional(),
-      gap: z.enum(['2', '3', '4', '6', '8']).optional(),
+      gap: SPACE_SCALE.optional(),
     }),
     render: ({ props, children }) => (
       <Grid columns={props.columns ?? 2} gap={props.gap}>
@@ -108,16 +142,26 @@ export const catalogDefs: CatalogComponent[] = [
   }),
   catalogComponent({
     name: 'Button',
-    description: 'A clickable action button in one of six variants and three sizes.',
+    description:
+      'A clickable action button in one of six variants and three sizes. `loading` and `disabled` render the states a real button has.',
     props: z.object({
       label: z.string(),
       variant: z
         .enum(['primary', 'secondary', 'outline', 'ghost', 'destructive', 'link'])
         .optional(),
       size: z.enum(['sm', 'md', 'lg']).optional(),
+      loading: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+      block: z.boolean().optional(),
     }),
     render: ({ props }) => (
-      <Button variant={props.variant} size={props.size}>
+      <Button
+        variant={props.variant}
+        size={props.size}
+        loading={props.loading}
+        disabled={props.disabled}
+        block={props.block}
+      >
         {props.label}
       </Button>
     ),
@@ -263,5 +307,185 @@ export const catalogDefs: CatalogComponent[] = [
       type: z.enum(['single', 'multiple']).optional(),
     }),
     render: ({ props }) => <Accordion items={props.items} type={props.type} />,
+  }),
+  catalogComponent({
+    name: 'Box',
+    slots: ['default'],
+    description:
+      'A plain container with optional padding from the spacing scale. Use to inset a group of components.',
+    props: z.object({ padding: SPACE_SCALE.optional() }),
+    render: ({ props, children }) => <Box padding={props.padding}>{children}</Box>,
+  }),
+  catalogComponent({
+    name: 'AspectRatio',
+    slots: ['default'],
+    description:
+      'Holds its children at a fixed width-to-height ratio. Wrap an Image to stop layout shifting as it loads.',
+    props: z.object({ ratio: z.number().positive().optional() }),
+    render: ({ props, children }) => <AspectRatio ratio={props.ratio}>{children}</AspectRatio>,
+  }),
+  catalogComponent({
+    name: 'Image',
+    slots: [],
+    description:
+      'An image by URL. `alt` describes it for screen readers — leave it empty only when the image is decorative.',
+    props: z.object({
+      src: z.string(),
+      alt: z.string(),
+      fit: z.enum(['cover', 'contain', 'fill', 'none', 'scale-down']).optional(),
+      rounded: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <img
+        src={props.src}
+        alt={props.alt}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: props.fit ?? 'cover',
+          borderRadius: props.rounded ? 'var(--radius-md)' : undefined,
+        }}
+      />
+    ),
+  }),
+  catalogComponent({
+    name: 'Field',
+    slots: ['default'],
+    description:
+      'Labels a form control and shows help or error text beneath it. Put exactly one input component in its children.',
+    props: z.object({
+      label: z.string().optional(),
+      required: z.boolean().optional(),
+      help: z.string().optional(),
+      error: z.string().optional(),
+    }),
+    render: ({ props, children }) => (
+      <Field label={props.label} required={props.required} help={props.help} error={props.error}>
+        {children}
+      </Field>
+    ),
+  }),
+  catalogComponent({
+    name: 'Input',
+    slots: [],
+    description:
+      'A single-line text input. Wrap it in a Field to give it a label. Set `invalid` to show the error state.',
+    props: z.object({
+      type: z.enum(['text', 'email', 'password', 'number', 'tel', 'url', 'search']).optional(),
+      placeholder: z.string().optional(),
+      value: z.string().optional(),
+      size: z.enum(['sm', 'md', 'lg']).optional(),
+      invalid: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+      required: z.boolean().optional(),
+    }),
+    // `defaultValue`, not `value`: a spec has no event handlers (actions are #155), and a controlled
+    // input without onChange is both a React warning and un-typeable for anyone clicking through.
+    render: ({ props }) => (
+      <Input
+        type={props.type}
+        placeholder={props.placeholder}
+        defaultValue={props.value}
+        size={props.size}
+        invalid={props.invalid}
+        disabled={props.disabled}
+        required={props.required}
+      />
+    ),
+  }),
+  catalogComponent({
+    name: 'Textarea',
+    slots: [],
+    description: 'A multi-line text input. Wrap it in a Field to give it a label.',
+    props: z.object({
+      placeholder: z.string().optional(),
+      value: z.string().optional(),
+      rows: z.number().int().min(1).max(20).optional(),
+      invalid: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <Textarea
+        placeholder={props.placeholder}
+        defaultValue={props.value}
+        rows={props.rows}
+        invalid={props.invalid}
+        disabled={props.disabled}
+      />
+    ),
+  }),
+  catalogComponent({
+    name: 'Select',
+    slots: [],
+    description:
+      'A dropdown of options. Wrap it in a Field to give it a label. Options are declared as label/value pairs.',
+    props: z.object({
+      options: z.array(z.object({ label: z.string(), value: z.string() })),
+      value: z.string().optional(),
+      size: z.enum(['sm', 'md', 'lg']).optional(),
+      invalid: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <Select
+        defaultValue={props.value}
+        size={props.size}
+        invalid={props.invalid}
+        disabled={props.disabled}
+      >
+        {props.options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
+    ),
+  }),
+  catalogComponent({
+    name: 'Checkbox',
+    slots: [],
+    description: 'A checkbox with an inline label.',
+    props: z.object({
+      label: z.string().optional(),
+      checked: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <Checkbox label={props.label} defaultChecked={props.checked} disabled={props.disabled} />
+    ),
+  }),
+  catalogComponent({
+    name: 'Radio',
+    slots: [],
+    description:
+      'A radio button with an inline label. Give every radio in one choice the same `name`.',
+    props: z.object({
+      label: z.string().optional(),
+      name: z.string().optional(),
+      checked: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <Radio
+        label={props.label}
+        name={props.name}
+        defaultChecked={props.checked}
+        disabled={props.disabled}
+      />
+    ),
+  }),
+  catalogComponent({
+    name: 'Switch',
+    slots: [],
+    description: 'An on/off toggle with an inline label.',
+    props: z.object({
+      label: z.string().optional(),
+      checked: z.boolean().optional(),
+      disabled: z.boolean().optional(),
+    }),
+    render: ({ props }) => (
+      <Switch label={props.label} defaultChecked={props.checked} disabled={props.disabled} />
+    ),
   }),
 ];
