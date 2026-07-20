@@ -491,8 +491,9 @@ export function LivePreview({
       </div>
 
       <CanvasOverlay
+        active={mode === 'select'}
         frameRect={frameRect}
-        hover={mode === 'select' ? hoverBox : null}
+        hover={hoverBox}
         selected={selectedBox}
         label={hoverLabel}
       />
