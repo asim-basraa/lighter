@@ -19,13 +19,13 @@ function targetUrl(path: string[]): URL {
 async function forward(
   request: NextRequest,
   path: string[],
-  method: 'GET' | 'POST' | 'PUT',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
 ): Promise<NextResponse> {
   const auth = await apiAuthHeaders();
   if (!auth.authorization) {
     return NextResponse.json({ status: 'error', message: 'not signed in' }, { status: 401 });
   }
-  const body = method === 'GET' ? undefined : (await request.text()) || '{}';
+  const body = method === 'GET' || method === 'DELETE' ? undefined : (await request.text()) || '{}';
   try {
     const res = await fetch(targetUrl(path), {
       method,
@@ -53,4 +53,8 @@ export async function POST(request: NextRequest, { params }: { params: { path: s
 
 export async function PUT(request: NextRequest, { params }: { params: { path: string[] } }) {
   return forward(request, params.path, 'PUT');
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { path: string[] } }) {
+  return forward(request, params.path, 'DELETE');
 }

@@ -27,6 +27,7 @@ export function LivePreview({
   versions,
   initialVersion,
   initialSpec,
+  hasDraft = false,
   origin,
   allowedOrigins,
   mixedContentBlocked,
@@ -35,6 +36,8 @@ export function LivePreview({
   versions: number[];
   initialVersion: number;
   initialSpec: Spec;
+  /** True when `initialSpec` came from an unpushed draft rather than a stored version. */
+  hasDraft?: boolean;
   origin: string;
   allowedOrigins: PreviewOrigin[];
   mixedContentBlocked: boolean;
@@ -49,6 +52,11 @@ export function LivePreview({
   const [specError, setSpecError] = useState<string | null>(null);
   const [edits, setEdits] = useState<TokenEdits>(DEFAULT_EDITS);
   const [live, setLive] = useState(true);
+  const [draftState, setDraftState] = useState<'clean' | 'saving' | 'saved' | 'error'>(
+    hasDraft ? 'saved' : 'clean',
+  );
+  const [pushed, setPushed] = useState<number | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   const post = useCallback(
     (message: ParentMessage) => {
@@ -114,6 +122,53 @@ export function LivePreview({
     const id = setTimeout(() => applySpec(specText), 300);
     return () => clearTimeout(id);
   }, [specText, live, connection, applySpec]);
+
+  /**
+   * Persist edits to the screen's mutable DRAFT (#166), not a new version.
+   *
+   * Versions stay immutable and meaningful — one per deliberate push — while the draft absorbs
+   * everything in between. Debounced well behind the preview push, because the frame updating is
+   * what the author is watching; the save is bookkeeping.
+   */
+  useEffect(() => {
+    if (specError) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(specText);
+    } catch {
+      return;
+    }
+    if (JSON.stringify(parsed) === JSON.stringify(initialSpec)) return;
+    const id = setTimeout(async () => {
+      setDraftState('saving');
+      try {
+        const res = await fetch(`/api/screens/${encodeURIComponent(screenId)}/draft`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ spec: parsed }),
+        });
+        setDraftState(res.ok ? 'saved' : 'error');
+      } catch {
+        setDraftState('error');
+      }
+    }, 900);
+    return () => clearTimeout(id);
+  }, [specText, specError, screenId, initialSpec]);
+
+  /** Promote the draft to a new immutable version — the deliberate publishing act. */
+  const push = useCallback(async () => {
+    setPushError(null);
+    const res = await fetch(`/api/screens/${encodeURIComponent(screenId)}/draft/promote`, {
+      method: 'POST',
+    });
+    const body = (await res.json().catch(() => ({}))) as { version?: number; message?: string };
+    if (!res.ok) {
+      setPushError(body.message ?? 'Could not push a version.');
+      return;
+    }
+    setPushed(body.version ?? null);
+    setDraftState('clean');
+  }, [screenId]);
 
   const loadVersion = useCallback(
     async (version: number) => {
@@ -196,10 +251,31 @@ export function LivePreview({
           />
           {specError && <p style={warn}>{specError}</p>}
           {!live && (
-            <button type="button" style={primaryBtn} onClick={() => applySpec(specText)}>
-              Apply spec
+            <button type="button" style={ghostBtn} onClick={() => applySpec(specText)}>
+              Apply to preview
             </button>
           )}
+
+          <div style={pushRow}>
+            <button type="button" style={primaryBtn} onClick={() => void push()}>
+              Push version
+            </button>
+            <span style={muted}>
+              {draftState === 'saving'
+                ? 'saving draft…'
+                : draftState === 'saved'
+                  ? 'draft saved'
+                  : draftState === 'error'
+                    ? 'draft not saved'
+                    : pushed
+                      ? `pushed v${pushed}`
+                      : ''}
+            </span>
+          </div>
+          {pushError && <p style={warn}>{pushError}</p>}
+          <p style={hint}>
+            Edits live in a draft. Pushing promotes it to an immutable version for review.
+          </p>
         </section>
 
         <section style={group}>
@@ -365,6 +441,12 @@ const ghostBtn: CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: 'var(--fontSize-xs)',
+};
+const pushRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 };
+const hint: CSSProperties = {
+  fontSize: 10,
+  color: 'var(--foreground-muted, #64748b)',
+  margin: '6px 0 0',
 };
 const pill: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11 };
 const muted: CSSProperties = { color: 'var(--foreground-muted, #64748b)', fontSize: 'var(--fontSize-xs)' };

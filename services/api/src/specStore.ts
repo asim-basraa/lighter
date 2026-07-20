@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -52,6 +52,7 @@ export function slugify(name: string): string {
  *
  *   <root>/<screenId>/screen.json      screen metadata { id, name }
  *   <root>/<screenId>/<n>.json         internal spec for version n (immutable; 1, 2, 3, …)
+ *   <root>/<screenId>/draft.json       the MUTABLE working spec, if any (#166)
  *
  * Every mutation is committed, so `root` is a full version history in git (conversational state is
  * kept in the DB, not here). Versions are immutable files — a new version is a new file, never an
@@ -228,6 +229,77 @@ export class SpecStore {
       }
       await writeFile(join(this.root, id, 'INTENT.md'), content);
       await this.commit(`Screen ${id} INTENT.md`);
+    });
+  }
+
+  /**
+   * The screen's working draft, or null if there isn't one.
+   *
+   * Drafts exist because visual editing can't mint a version per keystroke (#166). Versions stay
+   * immutable and meaningful — one per deliberate push — while the draft absorbs the edits in
+   * between. `draft.json` can't collide with a version file: `listVersions` only matches `\d+.json`.
+   */
+  async getDraft(id: string): Promise<Spec | null> {
+    if (!isValidScreenId(id)) return null;
+    const path = join(this.root, id, 'draft.json');
+    if (!existsSync(path)) return null;
+    try {
+      return SpecSchema.parse(JSON.parse(await readFile(path, 'utf8')));
+    } catch {
+      return null; // corrupt draft → treat as absent, exactly as getVersion does
+    }
+  }
+
+  /** Write the working draft, replacing any previous one. Structurally validated before the lock. */
+  async saveDraft(id: string, spec: unknown): Promise<Spec> {
+    const parsed: Spec = SpecSchema.parse(spec);
+    return this.serialize(async () => {
+      if (!isValidScreenId(id) || !existsSync(join(this.root, id))) {
+        throw new ScreenNotFoundError(`Screen "${id}" not found`);
+      }
+      await writeFile(join(this.root, id, 'draft.json'), `${JSON.stringify(parsed, null, 2)}\n`);
+      await this.commit(`Screen ${id} draft`);
+      return parsed;
+    });
+  }
+
+  /** Throw the draft away, reverting to the latest version. Returns false if there was none. */
+  async discardDraft(id: string): Promise<boolean> {
+    return this.serialize(async () => {
+      if (!isValidScreenId(id)) return false;
+      const path = join(this.root, id, 'draft.json');
+      if (!existsSync(path)) return false;
+      await rm(path);
+      await this.commit(`Screen ${id} draft discarded`);
+      return true;
+    });
+  }
+
+  /**
+   * Promote the draft to a new immutable version and clear it — the "push" in edit-freely-then-push.
+   *
+   * One serialized step so a promote can't interleave with a concurrent save and publish a spec the
+   * author never saw. Throws ScreenEmptyError when there's nothing to promote, rather than quietly
+   * minting a duplicate of the latest version.
+   */
+  async promoteDraft(id: string): Promise<number> {
+    return this.serialize(async () => {
+      if (!isValidScreenId(id) || !existsSync(join(this.root, id))) {
+        throw new ScreenNotFoundError(`Screen "${id}" not found`);
+      }
+      const path = join(this.root, id, 'draft.json');
+      if (!existsSync(path)) {
+        throw new ScreenEmptyError(`Screen "${id}" has no draft to promote`);
+      }
+      const parsed: Spec = SpecSchema.parse(JSON.parse(await readFile(path, 'utf8')));
+      const versions = await this.listVersions(id);
+      const next = (versions.at(-1) ?? 0) + 1;
+      await writeFile(join(this.root, id, `${next}.json`), `${JSON.stringify(parsed, null, 2)}\n`, {
+        flag: 'wx',
+      });
+      await rm(path);
+      await this.commit(`Screen ${id} v${next} (promoted from draft)`);
+      return next;
     });
   }
 
