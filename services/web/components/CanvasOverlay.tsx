@@ -14,17 +14,27 @@ import type { Box } from '@lighter/preview';
  * it would without the studio, including its own hover states.
  */
 export function CanvasOverlay({
+  active,
   frameRect,
   hover,
   selected,
   label,
 }: {
+  /**
+   * Whether the studio is allowed to draw over the app at all — true only in select mode.
+   *
+   * The rule lives here rather than at the call site because the call site had to remember to gate
+   * *every* box, and got it half-right: hover was gated on mode, the selection outline was not, so
+   * switching to browse left a rectangle floating over an app the studio was no longer driving.
+   * One gate, one place.
+   */
+  active: boolean;
   frameRect: DOMRect | null;
   hover: Box | null;
   selected: Box | null;
   label: string | null;
 }) {
-  if (!frameRect) return null;
+  if (!active || !frameRect) return null;
 
   const rebase = (box: Box): CSSProperties => ({
     top: frameRect.top + box.top,
