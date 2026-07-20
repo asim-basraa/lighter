@@ -9,6 +9,8 @@ import {
 } from '@lighter/preview';
 import type { Spec } from '@lighter/spec';
 import { buildTokenCss, DEFAULT_EDITS, type TokenEdits } from '../lib/tokenOverrides.js';
+import { OriginPicker } from './OriginPicker.js';
+import type { PreviewOrigin } from '../lib/previewOrigins.js';
 
 /**
  * Drive a real running app from the studio (#166/#169/#171).
@@ -26,6 +28,7 @@ export function LivePreview({
   initialVersion,
   initialSpec,
   origin,
+  allowedOrigins,
   mixedContentBlocked,
 }: {
   screenId: string;
@@ -33,6 +36,7 @@ export function LivePreview({
   initialVersion: number;
   initialSpec: Spec;
   origin: string;
+  allowedOrigins: PreviewOrigin[];
   mixedContentBlocked: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
@@ -200,10 +204,13 @@ export function LivePreview({
 
         <section style={group}>
           <h2 style={groupTitle}>App</h2>
-          <p style={muted}>
-            {origin}
-            {appPath ? <code style={{ marginLeft: 4 }}>{appPath}</code> : null}
-          </p>
+          <OriginPicker
+            current={origin}
+            allowed={allowedOrigins}
+            screenId={screenId}
+            version={initialVersion}
+          />
+          {appPath && <p style={muted}>at <code>{appPath}</code></p>}
           <div style={{ display: 'flex', gap: 6 }}>
             <button type="button" style={ghostBtn} onClick={() => post({ type: 'lighter:refresh' })}>
               Refresh data

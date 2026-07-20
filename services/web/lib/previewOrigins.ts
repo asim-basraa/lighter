@@ -1,48 +1,85 @@
-/**
- * Which app origins the studio may frame for live preview (#169).
- *
- * An allowlist, resolved server-side. The studio never frames a URL supplied in a query string — that
- * would make the studio a redirector for arbitrary content and hand any attacker a Lighter-branded
- * frame to put a login form in.
- *
- * Configure with `LIGHTER_PREVIEW_ORIGINS` (comma-separated). Defaults to the local shop so the
- * authoring loop works with no setup.
- */
-const DEFAULT_ORIGINS = ['http://localhost:4200'];
+import 'server-only';
+import { apiBaseUrl } from './inventory.js';
+import { apiAuthHeaders } from './session.js';
 
-export function previewOrigins(): string[] {
-  const configured = process.env.LIGHTER_PREVIEW_ORIGINS;
-  const list = configured
-    ? configured.split(',').map((o) => o.trim()).filter(Boolean)
-    : DEFAULT_ORIGINS;
-  return list.filter(isValidOrigin);
+/**
+ * The live-preview origin allowlist (#166), now per-project and managed in the UI rather than an
+ * env var.
+ *
+ * The studio must never frame an origin supplied in a query string. That would turn a Lighter URL
+ * into a redirector rendering someone else's content under Lighter's chrome — a credible phishing
+ * surface — and would hand spec pushes to whatever answered the handshake. A query param may only
+ * *select among* allowed origins.
+ */
+export interface PreviewOrigin {
+  origin: string;
+  label: string | null;
+  createdAt: string;
 }
 
-/** An origin only — scheme + host + optional port, no path, query or fragment. */
+/** A bare origin — scheme + host + optional port. Mirrors the API's rule; see @lighter/db. */
 export function isValidOrigin(value: string): boolean {
+  let url: URL;
   try {
-    const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-    return url.origin === value.replace(/\/$/, '') && url.pathname === '/';
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  if (url.search || url.hash) return false;
+  if (url.pathname !== '/') return false;
+  return url.origin === value.replace(/\/$/, '');
+}
+
+/** Points at the local machine — always previewable, because it can only expose its own author. */
+export function isLoopbackOrigin(value: string): boolean {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
   } catch {
     return false;
   }
 }
 
-/** Resolve a requested origin against the allowlist; falls back to the first allowed one. */
-export function resolvePreviewOrigin(requested: string | undefined): string | null {
-  const allowed = previewOrigins();
-  if (allowed.length === 0) return null;
-  if (requested && allowed.includes(requested)) return requested;
-  return allowed[0]!;
+/** Loopback origins offered without configuration, so the authoring loop needs no setup. */
+export const LOOPBACK_SUGGESTIONS = ['http://localhost:4200', 'http://localhost:3000'];
+
+export async function listPreviewOrigins(): Promise<PreviewOrigin[]> {
+  try {
+    const res = await fetch(new URL('/preview-origins', apiBaseUrl()), {
+      cache: 'no-store',
+      headers: await apiAuthHeaders(),
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as PreviewOrigin[];
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Whether this studio page can frame that origin at all.
+ * Resolve the origin to frame: the requested one if allowed, else the first configured, else a
+ * loopback default. Returns null only when there is genuinely nothing to frame.
+ */
+export async function resolvePreviewOrigin(
+  requested: string | undefined,
+): Promise<{ origin: string | null; allowed: PreviewOrigin[] }> {
+  const allowed = await listPreviewOrigins();
+  const permitted = (value: string) =>
+    isValidOrigin(value) && (isLoopbackOrigin(value) || allowed.some((o) => o.origin === value));
+
+  if (requested && permitted(requested)) return { origin: requested, allowed };
+  if (allowed.length > 0) return { origin: allowed[0]!.origin, allowed };
+  return { origin: LOOPBACK_SUGGESTIONS[0]!, allowed };
+}
+
+/**
+ * Whether a studio page on `studioProto` can frame `targetOrigin`.
  *
- * A page served over https cannot embed an http frame — browsers block mixed content, and localhost
- * is no exception. Surfacing this as a first-class state matters: otherwise a hosted studio pointed
- * at a dev server shows an empty rectangle with nothing in the console to explain it.
+ * An HTTPS page cannot embed an HTTP frame — browsers block mixed content, and `localhost` is no
+ * exception. Surfacing this explicitly matters: otherwise a hosted studio pointed at a dev server
+ * shows an empty rectangle with nothing in the console to explain it.
  */
 export function isMixedContentBlocked(studioProto: string, targetOrigin: string): boolean {
   return studioProto === 'https:' && targetOrigin.startsWith('http://');
