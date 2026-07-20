@@ -50,3 +50,22 @@ been through review.
 Spec-rendered content is presentational. Interactivity *inside* a spec (add-to-cart mutating cart
 state) needs json-render **actions** wired into the design system's catalog; today the shop's real
 state and navigation live in the app shell.
+
+## Live preview from Lighter
+
+This app is Lighter-aware: when it's framed by an allowlisted Lighter studio, that studio can push
+spec and token edits into it in real time. Nothing is mocked — routing, data fetching, cart state and
+the real APIs are still the app's. Outside such a frame the SDK is inert, so production is unaffected.
+
+```bash
+pnpm --filter @lighter/shop dev
+LIGHTER_PREVIEW_ORIGINS=http://localhost:4200 pnpm --filter @lighter/web dev
+```
+
+Then open `http://localhost:4000/screens/storefront/live`.
+
+Which studios may drive this app is configured, never inferred — `NEXT_PUBLIC_LIGHTER_STUDIO_ORIGINS`
+(comma-separated), defaulting to `http://localhost:4000`.
+
+Note: an HTTPS studio cannot frame an HTTP app — browsers block mixed content, and `localhost` is no
+exception. The local authoring loop is therefore local studio + local app.
