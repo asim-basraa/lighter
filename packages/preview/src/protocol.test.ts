@@ -25,6 +25,17 @@ describe('asParentMessage', () => {
     expect(asParentMessage({ type: 'lighter:tokens' })).toBeNull();
   });
 
+  it('accepts the annotation control messages', () => {
+    expect(asParentMessage({ type: 'lighter:annotate', enabled: true })?.type).toBe('lighter:annotate');
+    expect(asParentMessage({ type: 'lighter:measure', elementId: 'el-3' })?.type).toBe('lighter:measure');
+  });
+
+  it('rejects an annotate with no boolean — ambiguous would mean guessing on/off', () => {
+    expect(asParentMessage({ type: 'lighter:annotate' })).toBeNull();
+    expect(asParentMessage({ type: 'lighter:annotate', enabled: 'yes' })).toBeNull();
+    expect(asParentMessage({ type: 'lighter:measure' })).toBeNull();
+  });
+
   it('ignores foreign traffic instead of throwing', () => {
     // Real pages are noisy: React DevTools, Vite HMR, wallet extensions all postMessage.
     for (const junk of [null, undefined, 'hello', 42, [], { type: 'webpackHotUpdate' }, {}]) {
@@ -38,6 +49,27 @@ describe('asFrameMessage', () => {
     expect(asFrameMessage({ type: 'lighter:hello', protocol: 1, sdkVersion: '0.1.0', screenId: null, path: '/' })?.type).toBe('lighter:hello');
     expect(asFrameMessage({ type: 'lighter:navigated', screenId: 'cart', path: '/cart' })?.type).toBe('lighter:navigated');
     expect(asFrameMessage({ type: 'lighter:error', message: 'bad spec' })?.type).toBe('lighter:error');
+  });
+
+  it('accepts element and layout reports', () => {
+    const element = { id: 'el-3', box: { top: 1, left: 2, width: 3, height: 4 }, ancestors: ['el-0'] };
+    expect(asFrameMessage({ type: 'lighter:element', kind: 'hover', element })?.type).toBe('lighter:element');
+    // A null element is how the frame says "the cursor left everything".
+    expect(asFrameMessage({ type: 'lighter:element', kind: 'hover', element: null })?.type).toBe('lighter:element');
+    expect(asFrameMessage({ type: 'lighter:element', kind: 'select', element })?.type).toBe('lighter:element');
+    expect(asFrameMessage({ type: 'lighter:layout' })?.type).toBe('lighter:layout');
+  });
+
+  it('accepts the measure reply kind, which must stay distinct from select', () => {
+    // Reusing 'select' for a measure reply makes the studio re-apply the tree selection, which
+    // re-triggers the measure — an unbounded postMessage loop (seen at ~37k messages).
+    const element = { id: 'el-3', box: { top: 0, left: 0, width: 1, height: 1 }, ancestors: [] };
+    expect(asFrameMessage({ type: 'lighter:element', kind: 'measure', element })?.type).toBe('lighter:element');
+  });
+
+  it('rejects an element report with an unknown kind', () => {
+    expect(asFrameMessage({ type: 'lighter:element', kind: 'wat', element: null })).toBeNull();
+    expect(asFrameMessage({ type: 'lighter:element', element: null })).toBeNull();
   });
 
   it('rejects a hello with no protocol version — we could not tell if we can drive it', () => {

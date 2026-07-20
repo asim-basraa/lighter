@@ -33,7 +33,9 @@ export function RenderSpec({ spec, screenId }: { spec: Spec; screenId?: string }
 
   return (
     <>
-      <SpecView spec={toJsonRender(live)} />
+      {/* `annotate` stamps each element with its spec id so the studio can hit-test across the
+          frame boundary (#170). Only while a studio is driving: production renders unannotated. */}
+      <SpecView spec={toJsonRender(live)} annotate={connected} />
       {connected && <LiveBadge />}
     </>
   );

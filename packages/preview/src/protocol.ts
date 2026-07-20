@@ -44,7 +44,46 @@ export interface ErrorMessage {
   message: string;
 }
 
-export type FrameMessage = HelloMessage | NavigatedMessage | ErrorMessage;
+/**
+ * What's under the cursor, in the FRAME's viewport coordinates (#170).
+ *
+ * The SDK reports element **ids**, never component types: it knows nothing about specs, and the
+ * studio already holds the spec that maps an id to a type. Keeping that boundary means the SDK
+ * doesn't need updating when the spec model changes.
+ */
+export interface ElementMessage {
+  type: 'lighter:element';
+  /**
+   * 'hover' tracks the cursor; 'select' is a deliberate click; 'measure' is the answer to a
+   * `lighter:measure` request.
+   *
+   * 'measure' MUST stay distinct from 'select'. Reusing 'select' makes the studio re-apply the tree
+   * selection on every re-measure, which re-triggers the measure — an unbounded postMessage loop
+   * (observed at ~37k messages before this was split out).
+   */
+  kind: 'hover' | 'select' | 'measure';
+  /** Null only for kind 'hover', meaning the cursor left every annotated element. */
+  element: { id: string; box: Box; ancestors: string[] } | null;
+}
+
+/** The frame's layout moved (scroll/resize), so the studio should re-measure. */
+export interface LayoutMessage {
+  type: 'lighter:layout';
+}
+
+export interface Box {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+export type FrameMessage =
+  | HelloMessage
+  | NavigatedMessage
+  | ErrorMessage
+  | ElementMessage
+  | LayoutMessage;
 
 /* ── parent → frame ─────────────────────────────────────────────────────────────────────────── */
 
@@ -74,7 +113,44 @@ export interface RefreshMessage {
   hard?: boolean;
 }
 
-export type ParentMessage = ReadyMessage | SpecMessage | TokensMessage | RefreshMessage;
+/**
+ * Turn hit-testing on or off in the app (#170).
+ *
+ * Off by default so the prototype behaves normally — clicking a link follows it. While on, the SDK
+ * captures clicks and reports them instead, because in select mode a click means "pick this
+ * element".
+ */
+/**
+ * "Are you there?" — the parent asking the app to re-announce itself.
+ *
+ * The handshake starts with the frame's `hello`, which it sends once on load. Without a ping, a
+ * studio that remounts (a refresh, a hot reload, a route change) can never reconnect to an app that
+ * is already running: the app has said hello, nobody was listening, and it has no reason to repeat
+ * itself. The symptom is a preview stuck on "waiting" that only a reload of the APP fixes.
+ */
+export interface PingMessage {
+  type: 'lighter:ping';
+}
+
+export interface AnnotateMessage {
+  type: 'lighter:annotate';
+  enabled: boolean;
+}
+
+/** Ask the app to re-measure one element by id — after a spec change moved it. */
+export interface MeasureMessage {
+  type: 'lighter:measure';
+  elementId: string;
+}
+
+export type ParentMessage =
+  | ReadyMessage
+  | PingMessage
+  | SpecMessage
+  | TokensMessage
+  | RefreshMessage
+  | AnnotateMessage
+  | MeasureMessage;
 
 /* ── guards ─────────────────────────────────────────────────────────────────────────────────── */
 
@@ -94,6 +170,12 @@ export function asParentMessage(data: unknown): ParentMessage | null {
       return typeof data.css === 'string' ? (data as unknown as TokensMessage) : null;
     case 'lighter:refresh':
       return data as unknown as RefreshMessage;
+    case 'lighter:ping':
+      return data as unknown as PingMessage;
+    case 'lighter:annotate':
+      return typeof data.enabled === 'boolean' ? (data as unknown as AnnotateMessage) : null;
+    case 'lighter:measure':
+      return typeof data.elementId === 'string' ? (data as unknown as MeasureMessage) : null;
     default:
       return null;
   }
@@ -109,6 +191,12 @@ export function asFrameMessage(data: unknown): FrameMessage | null {
       return data as unknown as NavigatedMessage;
     case 'lighter:error':
       return typeof data.message === 'string' ? (data as unknown as ErrorMessage) : null;
+    case 'lighter:element':
+      return data.kind === 'hover' || data.kind === 'select' || data.kind === 'measure'
+        ? (data as unknown as ElementMessage)
+        : null;
+    case 'lighter:layout':
+      return data as unknown as LayoutMessage;
     default:
       return null;
   }
