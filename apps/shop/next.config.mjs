@@ -5,6 +5,7 @@ const nextConfig = {
   transpilePackages: [
     '@lighter/design-system',
     '@lighter/spec',
+    '@lighter/preview',
     '@json-render/core',
     '@json-render/react',
   ],

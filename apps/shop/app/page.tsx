@@ -4,5 +4,5 @@ import type { Spec } from '@lighter/spec';
 
 /** Storefront — layout exported from Lighter (screen `storefront`, v1, approved). */
 export default function Page() {
-  return <RenderSpec spec={spec as Spec} />;
+  return <RenderSpec spec={spec as Spec} screenId="storefront" />;
 }

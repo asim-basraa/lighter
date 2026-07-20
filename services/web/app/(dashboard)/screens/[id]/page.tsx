@@ -60,6 +60,15 @@ export default async function ScreenPage({
           target="_blank"
         >
           Preview v{version} ↗
+        </Link>{' '}
+        ·{' '}
+        {/* Live preview drives the REAL app over postMessage (#166). */}
+        <Link
+          href={`/screens/${encodeURIComponent(screen.id)}/live?v=${version}`}
+          style={link}
+          target="_blank"
+        >
+          Live app ↗
         </Link>
       </p>
 
