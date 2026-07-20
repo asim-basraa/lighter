@@ -52,7 +52,15 @@ export default async function ScreenPage({
         <Link href="/screens" style={link}>
           ← All screens
         </Link>{' '}
-        · <code>{screen.id}</code>
+        · <code>{screen.id}</code> ·{' '}
+        {/* Looking at your own work shouldn't require deploying a public link (#164). */}
+        <Link
+          href={`/screens/${encodeURIComponent(screen.id)}/preview?v=${version}`}
+          style={link}
+          target="_blank"
+        >
+          Preview v{version} ↗
+        </Link>
       </p>
 
       <div style={versionRow}>
