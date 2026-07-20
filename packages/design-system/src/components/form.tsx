@@ -15,7 +15,9 @@ type Size = 'sm' | 'md' | 'lg';
 /** A single-line text input. Set `invalid` to show the error state; pair with `<Field>`. */
 export const Input = forwardRef<
   HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement> & { size?: Size; invalid?: boolean }
+  // `size` must be omitted from the DOM attributes: theirs is a number, ours is a token scale, and
+  // the intersection collapses to `never` — making the prop impossible to pass from outside.
+  Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & { size?: Size; invalid?: boolean }
 >(function Input({ size = 'md', invalid, className, ...rest }, ref) {
   return (
     <input
@@ -46,7 +48,7 @@ export const Textarea = forwardRef<
 /** A native select. Provide `<option>`s as children. */
 export const Select = forwardRef<
   HTMLSelectElement,
-  SelectHTMLAttributes<HTMLSelectElement> & { size?: Size; invalid?: boolean }
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> & { size?: Size; invalid?: boolean }
 >(function Select({ size = 'md', invalid, className, children, ...rest }, ref) {
   return (
     <div className="lui-select-wrap">

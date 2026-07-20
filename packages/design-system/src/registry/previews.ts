@@ -143,4 +143,49 @@ export const previews: Record<string, PreviewSpec> = {
       ],
     },
   }),
+  // Layout + media (#166 catalog exposure)
+  Box: spec({ type: 'Box', props: { padding: '6' }, children: [text('Inset by a spacing token.')] }),
+  AspectRatio: spec({
+    type: 'AspectRatio',
+    props: { ratio: 16 / 9 },
+    children: [
+      {
+        type: 'Image',
+        props: {
+          src: 'https://placehold.co/640x360/e2e8f0/475569?text=16%3A9',
+          alt: 'Placeholder in a 16:9 frame',
+        },
+      },
+    ],
+  }),
+  Image: spec({
+    type: 'Image',
+    props: {
+      src: 'https://placehold.co/320x200/e2e8f0/475569?text=Image',
+      alt: 'A placeholder image',
+      rounded: true,
+    },
+  }),
+
+  // Forms
+  Field: spec({
+    type: 'Field',
+    props: { label: 'Email', required: true, help: 'We only use this for order updates.' },
+    children: [{ type: 'Input', props: { type: 'email', placeholder: 'you@example.com' } }],
+  }),
+  Input: spec({ type: 'Input', props: { placeholder: 'Street address' } }),
+  Textarea: spec({ type: 'Textarea', props: { placeholder: 'Delivery notes', rows: 3 } }),
+  Select: spec({
+    type: 'Select',
+    props: {
+      value: 'standard',
+      options: [
+        { label: 'Standard — 3-5 days', value: 'standard' },
+        { label: 'Express — next day', value: 'express' },
+      ],
+    },
+  }),
+  Checkbox: spec({ type: 'Checkbox', props: { label: 'Billing address is the same', checked: true } }),
+  Radio: spec({ type: 'Radio', props: { label: 'Card', name: 'payment', checked: true } }),
+  Switch: spec({ type: 'Switch', props: { label: 'Save these details', checked: true } }),
 };
