@@ -42,7 +42,9 @@ export default async function ScreensPage() {
       ) : (
         <ul style={list}>
           {rows.map((r) => (
-            <li key={r.id}>
+            // The preview link is a SIBLING of the row link, not nested inside it — an <a> inside an
+            // <a> is invalid HTML and browsers recover from it unpredictably.
+            <li key={r.id} style={rowWrap}>
               <Link href={`/screens/${encodeURIComponent(r.id)}`} style={row} data-screen={r.id}>
                 <span style={nameCol}>
                   <strong>{r.name}</strong>
@@ -63,6 +65,16 @@ export default async function ScreensPage() {
                   </span>
                 )}
               </Link>
+              {r.latest && (
+                <Link
+                  href={`/screens/${encodeURIComponent(r.id)}/preview?v=${r.latest}`}
+                  style={previewLink}
+                  target="_blank"
+                  aria-label={`Preview ${r.name} v${r.latest}`}
+                >
+                  Preview ↗
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -80,6 +92,7 @@ const list: CSSProperties = {
   gap: 'var(--space-2)',
 };
 const row: CSSProperties = {
+  flex: 1,
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
@@ -88,6 +101,18 @@ const row: CSSProperties = {
   borderRadius: 'var(--radius-md)',
   textDecoration: 'none',
   color: 'inherit',
+};
+/** Row link takes the space; the preview link sits beside it without stretching. */
+const rowWrap: CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)' };
+const previewLink: CSSProperties = {
+  flexShrink: 0,
+  padding: 'var(--space-3) var(--space-3)',
+  border: '1px solid var(--border-default, #e4e4e7)',
+  borderRadius: 'var(--radius-md)',
+  textDecoration: 'none',
+  color: 'var(--primary-default, #2563eb)',
+  fontSize: 'var(--fontSize-sm)',
+  whiteSpace: 'nowrap',
 };
 const nameCol: CSSProperties = { flex: 1 };
 const badge: CSSProperties = {
