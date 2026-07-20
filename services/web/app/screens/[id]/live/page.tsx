@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getScreen, getVersionSpec, getDraft } from '../../../../lib/screens.js';
 import { resolvePreviewOrigin, isMixedContentBlocked } from '../../../../lib/previewOrigins.js';
+import { loadInventory, apiInventoryFetcher } from '../../../../lib/inventory.js';
+import { apiAuthHeaders } from '../../../../lib/session.js';
 import { LivePreview } from '../../../../components/LivePreview.js';
 
 /**
@@ -34,9 +36,12 @@ export default async function LivePreviewPage({
 
   // Resume an in-progress draft if there is one, so reopening the editor doesn't discard work.
   // Falls back to the selected version, which is also what a fresh screen starts from.
-  const [draft, specRes] = await Promise.all([
+  const [draft, specRes, inventory] = await Promise.all([
     getDraft(params.id),
     version ? getVersionSpec(params.id, version) : Promise.resolve(null),
+    // Auth headers matter: without them this reads the GLOBAL /inventory, which is empty in
+    // scoped mode — the editor would silently have no catalog to insert from.
+    apiAuthHeaders().then((headers) => loadInventory(apiInventoryFetcher(undefined, headers))),
   ]);
   const spec = draft ?? specRes?.spec ?? null;
   if (!spec) return <Unavailable id={params.id}>This screen has no version to preview yet.</Unavailable>;
@@ -50,6 +55,11 @@ export default async function LivePreviewPage({
       initialVersion={version}
       initialSpec={spec}
       hasDraft={draft !== null}
+      catalog={(inventory.model?.components ?? []).map((c) => ({
+        name: c.name,
+        slots: c.slots,
+        props: c.props,
+      }))}
       origin={origin}
       allowedOrigins={allowed}
       mixedContentBlocked={isMixedContentBlocked(`${proto}:`, origin)}
