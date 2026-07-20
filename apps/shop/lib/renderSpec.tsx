@@ -20,10 +20,26 @@ import { useLighterPreview } from '@lighter/preview/react';
  * Conversion to json-render happens at this boundary (`@lighter/spec`), exactly as the studio does it,
  * so the shop and the review link render byte-identical output.
  */
-export function RenderSpec({ spec, screenId }: { spec: Spec; screenId?: string }) {
+export function RenderSpec({
+  spec,
+  screenId,
+  studioOrigins,
+}: {
+  spec: Spec;
+  screenId?: string;
+  /**
+   * Studios permitted to drive this app, resolved by the caller at REQUEST time.
+   *
+   * Deliberately a prop rather than a `NEXT_PUBLIC_*` read in here: Next inlines those at build, so
+   * the value would be baked into the image and changing it would need a rebuild. That route already
+   * cost time on the studio service (#140/#144). A server component reads the env per request and
+   * passes it down, so a container can be repointed with an env change and a restart.
+   */
+  studioOrigins?: string[];
+}) {
   const router = useRouter();
   const { spec: live, connected } = useLighterPreview<Spec>(spec, {
-    allowedOrigins: allowedStudioOrigins(),
+    allowedOrigins: studioOrigins?.length ? studioOrigins : allowedStudioOrigins(),
     screenId: screenId ?? null,
     // Refuse anything that isn't a well-formed spec, so a mid-edit keystroke leaves the previous
     // screen up and reports back instead of white-screening the storefront.
@@ -46,12 +62,12 @@ function isSpec(value: unknown): value is Spec {
 }
 
 /**
- * Which Lighter studios may drive this app. Configured, never inferred — an app must name who is
- * allowed to control it. Defaults to the local studio so `pnpm dev` works with no setup.
+ * Fallback for when the caller passes nothing: the build-time env, else the local studio so
+ * `pnpm dev` works with no setup. Configured, never inferred — an app must name who may control it.
  */
 function allowedStudioOrigins(): string[] {
   const configured = process.env.NEXT_PUBLIC_LIGHTER_STUDIO_ORIGINS;
-  if (configured) return configured.split(',').map((o) => o.trim());
+  if (configured) return configured.split(',').map((o) => o.trim()).filter(Boolean);
   return ['http://localhost:4000'];
 }
 
