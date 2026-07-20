@@ -158,6 +158,102 @@ export function registerScreenRoutes(
     }
   });
 
+
+  /**
+   * The working draft (#166) — a MUTABLE spec the visual editor writes to.
+   *
+   * Versions stay immutable and meaningful (one per deliberate push); the draft absorbs the edits in
+   * between, so live editing doesn't mint a version per keystroke. Catalog validation deliberately
+   * does NOT run on a draft save: a half-built tree is a normal intermediate state while editing, and
+   * refusing it would make the editor unusable. It runs on promote, which is the publishing act.
+   */
+  app.get('/screens/:id/draft', async (c) => {
+    const id = c.req.param('id');
+    const store = await resolveStore(c);
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    const spec = await store.getDraft(id);
+    if (!spec) return c.json({ status: 'error', message: 'no draft' }, 404);
+    return c.json({ spec });
+  });
+
+  app.put('/screens/:id/draft', async (c) => {
+    const id = c.req.param('id');
+    const store = await resolveStore(c);
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    const body = (await c.req.json().catch(() => null)) as { spec?: unknown } | null;
+    if (!body || body.spec === undefined) {
+      return c.json({ status: 'error', message: 'spec is required' }, 400);
+    }
+    try {
+      const spec = await store.saveDraft(id, body.spec);
+      return c.json({ spec });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return c.json(
+          { status: 'error', message: 'spec is not structurally valid', issues: err.issues },
+          400,
+        );
+      }
+      if (err instanceof ScreenNotFoundError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      throw err;
+    }
+  });
+
+  app.delete('/screens/:id/draft', async (c) => {
+    const id = c.req.param('id');
+    const store = await resolveStore(c);
+    const discarded = await store.discardDraft(id);
+    if (!discarded) return c.json({ status: 'error', message: 'no draft' }, 404);
+    return c.json({ status: 'discarded' });
+  });
+
+  /**
+   * Promote the draft to a new immutable version — the "push" in edit-freely-then-push.
+   *
+   * This IS the publishing act, so the catalog check happens here: a draft may be half-built, but a
+   * version is something reviewers see and apps consume.
+   */
+  app.post('/screens/:id/draft/promote', async (c) => {
+    const id = c.req.param('id');
+    const store = await resolveStore(c);
+    if (!(await store.getScreen(id))) {
+      return c.json({ status: 'error', message: `screen "${id}" not found` }, 404);
+    }
+    const draft = await store.getDraft(id);
+    if (!draft) return c.json({ status: 'error', message: 'no draft to promote' }, 404);
+
+    const catalog = await resolveCatalog(c);
+    if (!catalog) {
+      return c.json(
+        { status: 'error', message: 'no design-system catalog ingested yet; cannot validate a spec' },
+        422,
+      );
+    }
+    const issues = validateAgainstCatalog(draft, catalog);
+    if (issues.length > 0) {
+      return c.json({ status: 'error', message: 'spec does not match the catalog', issues }, 400);
+    }
+
+    try {
+      const version = await store.promoteDraft(id);
+      return c.json({ version }, 201);
+    } catch (err) {
+      if (err instanceof ScreenNotFoundError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      if (err instanceof ScreenEmptyError) {
+        return c.json({ status: 'error', message: err.message }, 404);
+      }
+      throw err;
+    }
+  });
+
   // Duplicate a screen: a new screen whose v1 is a copy of the source's latest spec.
   app.post('/screens/:id/duplicate', async (c) => {
     const sourceId = c.req.param('id');

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getScreen, getVersionSpec } from '../../../../lib/screens.js';
+import { getScreen, getVersionSpec, getDraft } from '../../../../lib/screens.js';
 import { resolvePreviewOrigin, isMixedContentBlocked } from '../../../../lib/previewOrigins.js';
 import { LivePreview } from '../../../../components/LivePreview.js';
 
@@ -32,8 +32,14 @@ export default async function LivePreviewPage({
   const { origin, allowed } = await resolvePreviewOrigin(searchParams.origin);
   if (!origin) return <Unavailable id={params.id}>No app origin available to preview.</Unavailable>;
 
-  const specRes = version ? await getVersionSpec(params.id, version) : null;
-  if (!specRes) return <Unavailable id={params.id}>This screen has no version to preview yet.</Unavailable>;
+  // Resume an in-progress draft if there is one, so reopening the editor doesn't discard work.
+  // Falls back to the selected version, which is also what a fresh screen starts from.
+  const [draft, specRes] = await Promise.all([
+    getDraft(params.id),
+    version ? getVersionSpec(params.id, version) : Promise.resolve(null),
+  ]);
+  const spec = draft ?? specRes?.spec ?? null;
+  if (!spec) return <Unavailable id={params.id}>This screen has no version to preview yet.</Unavailable>;
 
   const proto = (headers().get('x-forwarded-proto') ?? 'http').split(',')[0]!.trim();
 
@@ -42,7 +48,8 @@ export default async function LivePreviewPage({
       screenId={screen.id}
       versions={versions}
       initialVersion={version}
-      initialSpec={specRes.spec}
+      initialSpec={spec}
+      hasDraft={draft !== null}
       origin={origin}
       allowedOrigins={allowed}
       mixedContentBlocked={isMixedContentBlocked(`${proto}:`, origin)}

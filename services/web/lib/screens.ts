@@ -63,6 +63,17 @@ export async function getVersionSpec(
   return get(`/screens/${encodeURIComponent(id)}/versions/${version}`);
 }
 
+/**
+ * The screen's working draft, or null if there isn't one (#166).
+ *
+ * The editor writes here rather than minting a version per keystroke; a draft is promoted to an
+ * immutable version on push.
+ */
+export async function getDraft(id: string): Promise<Spec | null> {
+  const res = await get<{ spec: Spec }>(`/screens/${encodeURIComponent(id)}/draft`);
+  return res?.spec ?? null;
+}
+
 /** A version's approval state. */
 export async function getVersionState(id: string, version: number): Promise<ApprovalState> {
   const res = await get<{ version: number; state: ApprovalState }>(
