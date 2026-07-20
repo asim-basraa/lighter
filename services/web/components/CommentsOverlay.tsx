@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { CommentsPanel } from './CommentsPanel.js';
 import type { SpecElement } from '../lib/specElements.js';
 import type { CommentRecord } from '../lib/comments.js';
@@ -22,13 +22,24 @@ export function CommentsOverlay({
   elements,
   initialComments,
   loadError = null,
+  focusElementId = null,
+  openSignal = 0,
 }: {
   token: string;
   elements: SpecElement[];
   initialComments: CommentRecord[];
   loadError?: string | null;
+  /** Element chosen on the screen itself (pin, click, or breadcrumb) — preselected in the composer. */
+  focusElementId?: string | null;
+  /** Bumped on each selection so re-picking the same element still opens the panel (#160). */
+  openSignal?: number;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Selecting an element on the screen opens the panel — pointing and writing are one act.
+  useEffect(() => {
+    if (openSignal > 0) setOpen(true);
+  }, [openSignal]);
   const count = initialComments.length;
 
   return (
@@ -53,6 +64,7 @@ export function CommentsOverlay({
               elements={elements}
               initialComments={initialComments}
               loadError={loadError}
+              focusElementId={focusElementId}
             />
           </div>
         </aside>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import type { SpecElement } from '../lib/specElements.js';
 import { postComment, type CommentRecord, type NewComment } from '../lib/comments.js';
 import { threadComments } from '../lib/threadComments.js';
@@ -22,6 +22,7 @@ export function CommentsPanel({
   loadError = null,
   submit = postComment,
   bare = false,
+  focusElementId = null,
 }: {
   token: string;
   elements: SpecElement[];
@@ -31,12 +32,22 @@ export function CommentsPanel({
   submit?: SubmitFn;
   /** Drop the sidebar chrome (border/background/width) so an overlay host can supply its own (#160). */
   bare?: boolean;
+  /** Element selected on the screen itself; adopted as the composer's anchor (#160). */
+  focusElementId?: string | null;
 }) {
   const [comments, setComments] = useState(initialComments);
   const [elementId, setElementId] = useState(elements[0]?.id ?? '');
   const [replyTo, setReplyTo] = useState<CommentRecord | null>(null);
   const [body, setBody] = useState('');
   const [author, setAuthor] = useState('');
+
+  // Adopt the element the reviewer picked on the screen. Clearing any in-progress reply keeps the
+  // composer honest: a reply inherits its parent's anchor, so it must not silently retarget.
+  useEffect(() => {
+    if (!focusElementId) return;
+    setElementId(focusElementId);
+    setReplyTo(null);
+  }, [focusElementId]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -65,7 +76,9 @@ export function CommentsPanel({
   }
 
   return (
-    <section style={bare ? barePanel : panel} aria-label="Review comments">
+    // In bare mode the overlay's <aside> already provides the named landmark, so naming this section
+    // too would announce two nested landmarks with the same name.
+    <section style={bare ? barePanel : panel} aria-label={bare ? undefined : 'Review comments'}>
       {!bare && <h2 style={heading}>Comments</h2>}
 
       {loadError ? (
