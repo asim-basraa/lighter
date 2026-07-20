@@ -60,7 +60,10 @@ describe('CommentsOverlay (#160)', () => {
     fireEvent.click(screen.getByRole('button', { name: /show comments/i }));
     expect(screen.getByText('Make it secondary')).toBeTruthy();
     // The composer comes along, so a reviewer can anchor a new comment while the panel is open.
-    expect(screen.getByRole('region', { name: /review comments/i })).toBeTruthy();
+    // Exactly one landmark carries the name — the overlay's <aside>; the nested panel stays unnamed
+    // so screen readers don't announce the same landmark twice.
+    expect(screen.getByRole('complementary', { name: /review comments/i })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: /review comments/i })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /close comments/i }));
     expect(screen.queryByText('Make it secondary')).toBeNull();

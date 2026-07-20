@@ -2,8 +2,7 @@ import type { CSSProperties } from 'react';
 import { loadShare } from '../../../lib/share.js';
 import { loadComments, apiCommentsFetcher } from '../../../lib/comments.js';
 import { specElements } from '../../../lib/specElements.js';
-import { SharedMock } from '../../../components/SharedMock.js';
-import { CommentsOverlay } from '../../../components/CommentsOverlay.js';
+import { ReviewSurface } from '../../../components/ReviewSurface.js';
 
 /**
  * The public review surface: a deployed mock addressed by its share token. No account — the token in
@@ -26,20 +25,15 @@ export default async function SharePage({ params }: { params: { token: string } 
   }
   const { comments, error: commentsError } = await loadComments(apiCommentsFetcher(params.token));
   return (
-    <div style={layout}>
-      <SharedMock share={share} />
-      <CommentsOverlay
-        token={params.token}
-        elements={specElements(share.spec)}
-        initialComments={comments}
-        loadError={commentsError}
-      />
-    </div>
+    <ReviewSurface
+      share={share}
+      token={params.token}
+      elements={specElements(share.spec)}
+      initialComments={comments}
+      loadError={commentsError}
+    />
   );
 }
-
-/** Full-bleed: the mock owns the viewport; comments overlay on top (#160). */
-const layout: CSSProperties = { minHeight: '100vh' };
 
 const notFound: CSSProperties = {
   padding: 'var(--space-6)',
